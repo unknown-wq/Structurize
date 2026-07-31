@@ -1,37 +1,36 @@
-# eclipse
-/bin
-*.launch
+# build output
+/build
+/*/build
+/.gradle
+/*/.gradle
+/out
+/*/out
+/classes
+
+# gradle/loom run dirs
+/run
+/*/run
+/runs
+/*/runs
+/runClient
+/runServer
+/runData
+
+# decompiled sources and scratch files produced during the port
+/mc-src
+/tmp
+*.log
+logs/
+*.hprof
+
+# IDE
+/.idea
+/*.iml
+/.vscode
 /.settings
-/.metadata
 /.classpath
 /.project
 
-# idea
-/out
-*.ipr
-*.iws
-*.iml
-/.idea
-/classes
-
-# gradle
-/build
-/.gradle
-/runs
-
-# other
-/.vscode
-/eclipse
-/run
-/runClient
-/runServer
-.cache
-/libs
-
-/src/main/generated/java
-
-/logs/
-
-gradle/local.gradle
-gradle/local.configuration.gradle
-/repo/
+# OS
+**/.DS_Store
+**/Thumbs.db
