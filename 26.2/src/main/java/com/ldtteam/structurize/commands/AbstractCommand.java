@@ -1,20 +1,25 @@
 package com.ldtteam.structurize.commands;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Supplier;
 import com.ldtteam.structurize.api.constants.Constants;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.ArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandExceptionType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.Commands.CommandSelection;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Tuple;
+import com.ldtteam.structurize.compat.util.Tuple;
 
 /**
  * Interface for all commands
@@ -63,6 +68,52 @@ public abstract class AbstractCommand
     protected static <T> RequiredArgumentBuilder<CommandSourceStack, T> newArgument(final String name, final ArgumentType<T> type)
     {
         return RequiredArgumentBuilder.argument(name, type);
+    }
+
+    /**
+     * Replacement for NeoForge's {@code EnumArgument}. Fabric has no equivalent and a home made
+     * {@code ArgumentType} would also need an {@code ArgumentTypeInfo} in the vanilla registry so that the
+     * command tree can be sent to the client. A plain string argument is registered by vanilla, so it syncs
+     * for free; the enum constants come back as suggestions and are decoded by
+     * {@link #getEnum(CommandContext, String, Class)}.
+     *
+     * @param <E>       enum class type
+     * @param name      argument name
+     * @param enumClass the enum whose constants are accepted
+     * @return new node builder
+     */
+    protected static <E extends Enum<E>> RequiredArgumentBuilder<CommandSourceStack, String> newEnumArgument(final String name,
+        final Class<E> enumClass)
+    {
+        return RequiredArgumentBuilder.<CommandSourceStack, String>argument(name, StringArgumentType.word())
+            .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                Arrays.stream(enumClass.getEnumConstants()).map(constant -> constant.name().toLowerCase(Locale.ROOT)), builder));
+    }
+
+    /**
+     * Reads back an argument created by {@link #newEnumArgument(String, Class)}.
+     *
+     * @param <E>       enum class type
+     * @param context   command context
+     * @param name      argument name
+     * @param enumClass the enum whose constants are accepted
+     * @return the matching constant
+     * @throws CommandSyntaxException when the given text names no constant
+     */
+    protected static <E extends Enum<E>> E getEnum(final CommandContext<CommandSourceStack> context,
+        final String name,
+        final Class<E> enumClass) throws CommandSyntaxException
+    {
+        final String value = StringArgumentType.getString(context, name);
+        for (final E constant : enumClass.getEnumConstants())
+        {
+            if (constant.name().equalsIgnoreCase(value))
+            {
+                return constant;
+            }
+        }
+        throw new CommandSyntaxException(new StructurizeCommandExceptionType(),
+            Component.literal("Unknown " + enumClass.getSimpleName() + ": " + value));
     }
 
     /**

@@ -1,7 +1,7 @@
 package com.ldtteam.structurize.network.messages;
 
-import com.ldtteam.common.network.AbstractClientPlayMessage;
-import com.ldtteam.common.network.PlayMessageType;
+import com.ldtteam.structurize.compat.common.network.AbstractClientPlayMessage;
+import com.ldtteam.structurize.compat.common.network.PlayMessageType;
 import com.ldtteam.structurize.api.Log;
 import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.storage.ClientStructurePackLoader;
@@ -13,7 +13,7 @@ import net.minecraft.nbt.NbtIo;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.ldtteam.structurize.compat.common.network.PlayMessageContext;
 
 import java.io.IOException;
 
@@ -42,8 +42,8 @@ public class SaveScanMessage extends AbstractClientPlayMessage
         try (ByteBufInputStream stream = new ByteBufInputStream(buffer))
         {
             final CompoundTag wrapperCompound = NbtIo.read(stream, NbtAccounter.unlimitedHeap());
-            tag = wrapperCompound.getCompound(TAG_SCHEMATIC);
-            name = wrapperCompound.getString(TAG_MILLIS);
+            tag = wrapperCompound.getCompoundOrEmpty(TAG_SCHEMATIC);
+            name = wrapperCompound.getStringOr(TAG_MILLIS, "");
         }
         catch (final RuntimeException e)
         {
@@ -89,7 +89,7 @@ public class SaveScanMessage extends AbstractClientPlayMessage
     }
 
     @Override
-    protected void onExecute(final IPayloadContext context, final Player player)
+    protected void onExecute(final PlayMessageContext context, final Player player)
     {
         if (compoundNBT != null)
         {

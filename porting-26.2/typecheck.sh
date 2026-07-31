@@ -21,6 +21,11 @@ JAVAC=/usr/lib/jvm/java-25-openjdk-amd64/bin/javac
 OUT=$(mktemp -d)
 trap 'rm -rf "$OUT"' EXIT
 
+# Запуск из чужого каталога давал бы пустой список файлов и "0 ошибок" — самый опасный
+# из возможных ответов. Проверяем явно.
+[ -d src/main/java/com/ldtteam/structurize ] || {
+  echo "запускать из /home/user/Structurize/26.2 (сейчас: $PWD)" >&2; exit 1; }
+
 MCJAR=$(find /root/.gradle ~/.gradle -path '*minecraftMaven*' -name 'minecraft-merged-*26.2*.jar' \
         ! -name '*sources*' 2>/dev/null | head -1)
 [ -n "$MCJAR" ] || { echo "minecraft jar не найден — скажи оркестратору" >&2; exit 1; }

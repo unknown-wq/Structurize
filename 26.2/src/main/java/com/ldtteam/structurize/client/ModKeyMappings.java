@@ -1,22 +1,29 @@
 package com.ldtteam.structurize.client;
 
-import com.ldtteam.blockui.BOScreen;
-import com.ldtteam.structurize.client.gui.AbstractBlueprintManipulationWindow;
+import com.ldtteam.structurize.api.constants.Constants;
+import com.ldtteam.structurize.client.gui.GuiStubs;
 import com.mojang.blaze3d.platform.InputConstants;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.KeyMapping;
-import net.minecraft.client.Minecraft;
-import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
-import net.neoforged.neoforge.client.settings.IKeyConflictContext;
-import net.neoforged.neoforge.client.settings.KeyConflictContext;
-import net.neoforged.neoforge.client.settings.KeyModifier;
-import net.neoforged.neoforge.common.util.Lazy;
-import org.jetbrains.annotations.NotNull;
+import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
+
+import java.util.function.Supplier;
 
 public class ModKeyMappings
 {
-    private static final String CATEGORY = "key.structurize.categories.general";
+    /**
+     * Key mapping categories are no longer plain strings in 26.2 - {@code KeyMapping.Category} is a record
+     * around an {@link Identifier}, and its label key is derived as {@code key.category.<namespace>.<path>}.
+     */
+    private static final KeyMapping.Category CATEGORY =
+        KeyMapping.Category.register(Identifier.fromNamespaceAndPath(Constants.MOD_ID, "general"));
 
+    // TODO(port-26.2): DEGRADED — IKeyConflictContext/KeyConflictContext/KeyModifier are NeoForge-only.
+    //  26.2 KeyMapping has no conflict context and no modifier; the blueprint window mappings are therefore
+    //  plain global mappings. The original context test is preserved as isBlueprintWindowActive() below and
+    //  must be asked explicitly by whoever reads the mapping.
+    /*
     public static final IKeyConflictContext BLUEPRINT_WINDOW = new IKeyConflictContext()
     {
         @Override
@@ -35,53 +42,88 @@ public class ModKeyMappings
             return this == other;
         }
     };
+    */
+
+    /**
+     * Replacement for the removed {@code BLUEPRINT_WINDOW} key conflict context: true while a blueprint
+     * manipulation window is on top. Callers of the blueprint mappings have to gate on this themselves.
+     */
+    public static boolean isBlueprintWindowActive()
+    {
+        return GuiStubs.isBlueprintManipulationScreenOpen();
+    }
 
     /**
      * Teleport using active Scan Tool
      */
-    public static final Lazy<KeyMapping> TELEPORT = Lazy.of(() -> new KeyMapping("key.structurize.teleport",
-            KeyConflictContext.IN_GAME, InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY));
+    public static final Supplier<KeyMapping> TELEPORT = lazy(() -> new KeyMapping("key.structurize.teleport",
+            InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY));
 
     /**
      * Move build previews
      */
-    public static final Lazy<KeyMapping> MOVE_FORWARD = Lazy.of(() -> new KeyMapping("key.structurize.move_forward",
-            BLUEPRINT_WINDOW, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UP, CATEGORY));
-    public static final Lazy<KeyMapping> MOVE_BACK = Lazy.of(() -> new KeyMapping("key.structurize.move_back",
-            BLUEPRINT_WINDOW, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_DOWN, CATEGORY));
-    public static final Lazy<KeyMapping> MOVE_LEFT = Lazy.of(() -> new KeyMapping("key.structurize.move_left",
-            BLUEPRINT_WINDOW, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_LEFT, CATEGORY));
-    public static final Lazy<KeyMapping> MOVE_RIGHT = Lazy.of(() -> new KeyMapping("key.structurize.move_right",
-            BLUEPRINT_WINDOW, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT, CATEGORY));
-    public static final Lazy<KeyMapping> MOVE_UP = Lazy.of(() -> new KeyMapping("key.structurize.move_up",
-            BLUEPRINT_WINDOW, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_KP_ADD, CATEGORY));
-    public static final Lazy<KeyMapping> MOVE_DOWN = Lazy.of(() -> new KeyMapping("key.structurize.move_down",
-            BLUEPRINT_WINDOW, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_KP_SUBTRACT, CATEGORY));
-    public static final Lazy<KeyMapping> ROTATE_CW = Lazy.of(() -> new KeyMapping("key.structurize.rotate_cw",
-            BLUEPRINT_WINDOW, KeyModifier.SHIFT, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT, CATEGORY));
-    public static final Lazy<KeyMapping> ROTATE_CCW = Lazy.of(() -> new KeyMapping("key.structurize.rotate_ccw",
-            BLUEPRINT_WINDOW, KeyModifier.SHIFT, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_LEFT, CATEGORY));
-    public static final Lazy<KeyMapping> MIRROR = Lazy.of(() -> new KeyMapping("key.structurize.mirror",
-            BLUEPRINT_WINDOW, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_M, CATEGORY));
-    public static final Lazy<KeyMapping> PLACE = Lazy.of(() -> new KeyMapping("key.structurize.place",
-            BLUEPRINT_WINDOW, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_ENTER, CATEGORY));
+    public static final Supplier<KeyMapping> MOVE_FORWARD = lazy(() -> new KeyMapping("key.structurize.move_forward",
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UP, CATEGORY));
+    public static final Supplier<KeyMapping> MOVE_BACK = lazy(() -> new KeyMapping("key.structurize.move_back",
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_DOWN, CATEGORY));
+    public static final Supplier<KeyMapping> MOVE_LEFT = lazy(() -> new KeyMapping("key.structurize.move_left",
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_LEFT, CATEGORY));
+    public static final Supplier<KeyMapping> MOVE_RIGHT = lazy(() -> new KeyMapping("key.structurize.move_right",
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT, CATEGORY));
+    public static final Supplier<KeyMapping> MOVE_UP = lazy(() -> new KeyMapping("key.structurize.move_up",
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_KP_ADD, CATEGORY));
+    public static final Supplier<KeyMapping> MOVE_DOWN = lazy(() -> new KeyMapping("key.structurize.move_down",
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_KP_SUBTRACT, CATEGORY));
+    // TODO(port-26.2): DEGRADED — KeyModifier.SHIFT dropped, 26.2 KeyMapping has no modifier support.
+    //  ROTATE_CW/CCW would collide with MOVE_RIGHT/MOVE_LEFT, so they are rebound to X/Z by default.
+    /* ROTATE_CW  = shift + GLFW_KEY_RIGHT, ROTATE_CCW = shift + GLFW_KEY_LEFT */
+    public static final Supplier<KeyMapping> ROTATE_CW = lazy(() -> new KeyMapping("key.structurize.rotate_cw",
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_X, CATEGORY));
+    public static final Supplier<KeyMapping> ROTATE_CCW = lazy(() -> new KeyMapping("key.structurize.rotate_ccw",
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_Z, CATEGORY));
+    public static final Supplier<KeyMapping> MIRROR = lazy(() -> new KeyMapping("key.structurize.mirror",
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_M, CATEGORY));
+    public static final Supplier<KeyMapping> PLACE = lazy(() -> new KeyMapping("key.structurize.place",
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_ENTER, CATEGORY));
 
     /**
-     * Register key mappings
+     * Register key mappings. Called from {@code StructurizeClient#onInitializeClient}.
      */
-    public static void register(@NotNull final RegisterKeyMappingsEvent event)
+    public static void init()
     {
-        event.register(TELEPORT.get());
-        event.register(MOVE_FORWARD.get());
-        event.register(MOVE_BACK.get());
-        event.register(MOVE_LEFT.get());
-        event.register(MOVE_RIGHT.get());
-        event.register(MOVE_UP.get());
-        event.register(MOVE_DOWN.get());
-        event.register(ROTATE_CW.get());
-        event.register(ROTATE_CCW.get());
-        event.register(MIRROR.get());
-        event.register(PLACE.get());
+        KeyMappingHelper.registerKeyMapping(TELEPORT.get());
+        KeyMappingHelper.registerKeyMapping(MOVE_FORWARD.get());
+        KeyMappingHelper.registerKeyMapping(MOVE_BACK.get());
+        KeyMappingHelper.registerKeyMapping(MOVE_LEFT.get());
+        KeyMappingHelper.registerKeyMapping(MOVE_RIGHT.get());
+        KeyMappingHelper.registerKeyMapping(MOVE_UP.get());
+        KeyMappingHelper.registerKeyMapping(MOVE_DOWN.get());
+        KeyMappingHelper.registerKeyMapping(ROTATE_CW.get());
+        KeyMappingHelper.registerKeyMapping(ROTATE_CCW.get());
+        KeyMappingHelper.registerKeyMapping(MIRROR.get());
+        KeyMappingHelper.registerKeyMapping(PLACE.get());
+    }
+
+    /**
+     * Minimal stand-in for NeoForge's {@code Lazy}: keeps every {@code .get()} call site untouched while the
+     * {@link KeyMapping} constructor (which self-registers into a static vanilla map) stays deferred.
+     */
+    private static <T> Supplier<T> lazy(final Supplier<T> factory)
+    {
+        return new Supplier<>()
+        {
+            private T value;
+
+            @Override
+            public T get()
+            {
+                if (value == null)
+                {
+                    value = factory.get();
+                }
+                return value;
+            }
+        };
     }
 
     /**

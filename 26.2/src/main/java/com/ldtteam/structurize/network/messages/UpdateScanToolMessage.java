@@ -1,14 +1,14 @@
 package com.ldtteam.structurize.network.messages;
 
-import com.ldtteam.common.network.AbstractServerPlayMessage;
-import com.ldtteam.common.network.PlayMessageType;
+import com.ldtteam.structurize.compat.common.network.AbstractServerPlayMessage;
+import com.ldtteam.structurize.compat.common.network.PlayMessageType;
 import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.items.ItemScanTool;
 import com.ldtteam.structurize.util.ScanToolData;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.ldtteam.structurize.compat.common.network.PlayMessageContext;
 
 /**
  * Send the scan tool update message to the client.
@@ -47,7 +47,7 @@ public class UpdateScanToolMessage extends AbstractServerPlayMessage
     }
 
     @Override
-    protected void onExecute(final IPayloadContext context, final ServerPlayer player)
+    protected void onExecute(final PlayMessageContext context, final ServerPlayer player)
     {
         final ItemStack stack = player.getMainHandItem();
         if (stack.getItem() instanceof ItemScanTool tool)

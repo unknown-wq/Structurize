@@ -1,7 +1,7 @@
 package com.ldtteam.structurize.network.messages;
 
-import com.ldtteam.common.network.AbstractServerPlayMessage;
-import com.ldtteam.common.network.PlayMessageType;
+import com.ldtteam.structurize.compat.common.network.AbstractServerPlayMessage;
+import com.ldtteam.structurize.compat.common.network.PlayMessageType;
 import com.ldtteam.structurize.api.Log;
 import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.blockentities.interfaces.IBlueprintDataProviderBE;
@@ -9,7 +9,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.ldtteam.structurize.compat.common.network.PlayMessageContext;
 
 /**
  * Messages for adding or removing a tag
@@ -70,7 +70,7 @@ public class AddRemoveTagMessage extends AbstractServerPlayMessage
 
     @Override
 
-    protected void onExecute(final IPayloadContext context, final ServerPlayer player)
+    protected void onExecute(final PlayMessageContext context, final ServerPlayer player)
     {
         final BlockEntity te = player.level().getBlockEntity(anchorPos);
         if (te instanceof IBlueprintDataProviderBE)

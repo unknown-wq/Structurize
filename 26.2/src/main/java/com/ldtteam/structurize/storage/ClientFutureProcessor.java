@@ -1,8 +1,8 @@
 package com.ldtteam.structurize.storage;
 
 import com.ldtteam.structurize.blueprints.v1.Blueprint;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.Minecraft;
 import org.jetbrains.annotations.NotNull;
 import java.util.LinkedList;
 import java.util.Queue;
@@ -43,8 +43,15 @@ public class ClientFutureProcessor
         blueprintDataConsumerQueue.add(processingData);
     }
 
-    @SubscribeEvent
-    public static void onWorldTick(final ClientTickEvent.Post event)
+    /**
+     * Register the client side lifecycle hooks. Called from the client mod initializer.
+     */
+    public static void register()
+    {
+        ClientTickEvents.END_CLIENT_TICK.register(ClientFutureProcessor::onWorldTick);
+    }
+
+    public static void onWorldTick(final Minecraft minecraft)
     {
         if (!blueprintConsumerQueue.isEmpty() && blueprintConsumerQueue.peek().blueprintFuture.isDone())
         {

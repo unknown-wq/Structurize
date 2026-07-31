@@ -1,13 +1,13 @@
 package com.ldtteam.structurize.network.messages;
 
-import com.ldtteam.common.network.AbstractClientPlayMessage;
-import com.ldtteam.common.network.PlayMessageType;
+import com.ldtteam.structurize.compat.common.network.AbstractClientPlayMessage;
+import com.ldtteam.structurize.compat.common.network.PlayMessageType;
 import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.storage.rendering.RenderingCache;
 import com.ldtteam.structurize.storage.rendering.types.BlueprintPreviewData;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.ldtteam.structurize.compat.common.network.PlayMessageContext;
 
 import java.util.UUID;
 
@@ -58,7 +58,7 @@ public class SyncPreviewCacheToClient extends AbstractClientPlayMessage
     }
 
     @Override
-    protected void onExecute(final IPayloadContext context, final Player player)
+    protected void onExecute(final PlayMessageContext context, final Player player)
     {
         final String uuid = SHARED_PREFIX + playerUUID.toString();
         if (previewData.isEmpty())

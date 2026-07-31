@@ -1,9 +1,9 @@
 package com.ldtteam.structurize.storage;
 
 import com.ldtteam.structurize.blueprints.v1.Blueprint;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import org.jetbrains.annotations.NotNull;
 import java.util.LinkedList;
 import java.util.List;
@@ -59,10 +59,17 @@ public class ServerFutureProcessor
         blueprintDataConsumerQueue.add(processingData);
     }
 
-    @SubscribeEvent
-    public static void onWorldTick(final LevelTickEvent.Post event)
+    /**
+     * Register the server side lifecycle hooks. Called from the mod initializer.
+     */
+    public static void register()
     {
-        if (!blueprintConsumerQueue.isEmpty() && blueprintConsumerQueue.peek().level == event.getLevel() && blueprintConsumerQueue.peek().blueprintFuture.isDone())
+        ServerTickEvents.END_LEVEL_TICK.register(ServerFutureProcessor::onWorldTick);
+    }
+
+    public static void onWorldTick(final ServerLevel level)
+    {
+        if (!blueprintConsumerQueue.isEmpty() && blueprintConsumerQueue.peek().level == level && blueprintConsumerQueue.peek().blueprintFuture.isDone())
         {
             final BlueprintProcessingData data = blueprintConsumerQueue.poll();
             try
@@ -75,7 +82,7 @@ public class ServerFutureProcessor
             }
         }
 
-        if (!blueprintDataConsumerQueue.isEmpty() && blueprintDataConsumerQueue.peek().level == event.getLevel() && blueprintDataConsumerQueue.peek().blueprintDataFuture.isDone())
+        if (!blueprintDataConsumerQueue.isEmpty() && blueprintDataConsumerQueue.peek().level == level && blueprintDataConsumerQueue.peek().blueprintDataFuture.isDone())
         {
             final BlueprintDataProcessingData data = blueprintDataConsumerQueue.poll();
             try
@@ -88,7 +95,7 @@ public class ServerFutureProcessor
             }
         }
 
-        if (!blueprintListConsumerQueue.isEmpty() && blueprintListConsumerQueue.peek().level == event.getLevel() && blueprintListConsumerQueue.peek().blueprintFuture.isDone())
+        if (!blueprintListConsumerQueue.isEmpty() && blueprintListConsumerQueue.peek().level == level && blueprintListConsumerQueue.peek().blueprintFuture.isDone())
         {
             final BlueprintListProcessingData data = blueprintListConsumerQueue.poll();
             try

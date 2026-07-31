@@ -1,13 +1,13 @@
 package com.ldtteam.structurize.network.messages;
 
-import com.ldtteam.common.network.AbstractServerPlayMessage;
-import com.ldtteam.common.network.PlayMessageType;
+import com.ldtteam.structurize.compat.common.network.AbstractServerPlayMessage;
+import com.ldtteam.structurize.compat.common.network.PlayMessageType;
 import com.ldtteam.structurize.Structurize;
 import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.storage.rendering.ServerPreviewDistributor;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.ldtteam.structurize.compat.common.network.PlayMessageContext;
 
 /**
  * Sync player settings to server.
@@ -43,7 +43,7 @@ public class SyncSettingsToServer extends AbstractServerPlayMessage
     }
 
     @Override
-    protected void onExecute(final IPayloadContext context, final ServerPlayer player)
+    protected void onExecute(final PlayMessageContext context, final ServerPlayer player)
     {
         ServerPreviewDistributor.register(player, displayShared);
     }

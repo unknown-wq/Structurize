@@ -1,7 +1,7 @@
 package com.ldtteam.structurize.network.messages;
 
-import com.ldtteam.common.network.AbstractServerPlayMessage;
-import com.ldtteam.common.network.PlayMessageType;
+import com.ldtteam.structurize.compat.common.network.AbstractServerPlayMessage;
+import com.ldtteam.structurize.compat.common.network.PlayMessageType;
 import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.client.gui.util.ItemPositionsStorage;
 import com.ldtteam.structurize.management.Manager;
@@ -9,7 +9,7 @@ import com.ldtteam.structurize.operations.RemoveBlockOperation;
 import com.ldtteam.structurize.operations.RemoveFilteredOperation;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.ldtteam.structurize.compat.common.network.PlayMessageContext;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -69,7 +69,7 @@ public class RemoveBlockMessage extends AbstractServerPlayMessage
     }
 
     @Override
-    protected void onExecute(final IPayloadContext context, final ServerPlayer player)
+    protected void onExecute(final PlayMessageContext context, final ServerPlayer player)
     {
         if (!player.isCreative())
         {

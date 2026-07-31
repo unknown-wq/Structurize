@@ -1,16 +1,16 @@
 package com.ldtteam.structurize.network.messages;
 
-import com.ldtteam.common.network.AbstractPlayMessage;
-import com.ldtteam.common.network.PlayMessageType;
+import com.ldtteam.structurize.compat.common.network.AbstractPlayMessage;
+import com.ldtteam.structurize.compat.common.network.PlayMessageType;
 import com.ldtteam.structurize.api.constants.Constants;
-import com.ldtteam.structurize.client.gui.WindowUndoRedo;
+import com.ldtteam.structurize.client.gui.GuiStubs;
 import com.ldtteam.structurize.management.Manager;
 import com.ldtteam.structurize.util.ChangeStorage;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.util.Tuple;
+import com.ldtteam.structurize.compat.util.Tuple;
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.ldtteam.structurize.compat.common.network.PlayMessageContext;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -49,13 +49,13 @@ public class OperationHistoryMessage extends AbstractPlayMessage
     }
 
     @Override
-    protected void onClientExecute(final IPayloadContext context, final Player player)
+    protected void onClientExecute(final PlayMessageContext context, final Player player)
     {
-        WindowUndoRedo.lastOperations = operationIDs;
+        GuiStubs.setLastOperations(operationIDs);
     }
 
     @Override
-    protected void onServerExecute(final IPayloadContext context, final ServerPlayer player)
+    protected void onServerExecute(final PlayMessageContext context, final ServerPlayer player)
     {
         final List<ChangeStorage> operations = Manager.getChangeStoragesForPlayer(player.getUUID());
         for (final ChangeStorage storage : operations)

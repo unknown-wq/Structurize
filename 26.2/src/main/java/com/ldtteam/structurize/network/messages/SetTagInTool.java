@@ -1,7 +1,7 @@
 package com.ldtteam.structurize.network.messages;
 
-import com.ldtteam.common.network.AbstractServerPlayMessage;
-import com.ldtteam.common.network.PlayMessageType;
+import com.ldtteam.structurize.compat.common.network.AbstractServerPlayMessage;
+import com.ldtteam.structurize.compat.common.network.PlayMessageType;
 import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.items.ModItems;
 import com.ldtteam.structurize.items.ItemTagTool.TagData;
@@ -9,7 +9,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.ldtteam.structurize.compat.common.network.PlayMessageContext;
 
 /**
  * Messages for adding or removing a tag
@@ -53,11 +53,11 @@ public class SetTagInTool extends AbstractServerPlayMessage
     }
 
     @Override
-    protected void onExecute(final IPayloadContext context, final ServerPlayer player)
+    protected void onExecute(final PlayMessageContext context, final ServerPlayer player)
     {
         if (!player.isCreative())
         {
-            player.displayClientMessage(Component.translatable("structurize.gui.tagtool.creative_only"), false);
+            player.sendSystemMessage(Component.translatable("structurize.gui.tagtool.creative_only"), false);
             return;
         }
 

@@ -1,14 +1,14 @@
 package com.ldtteam.structurize.network.messages;
 
-import com.ldtteam.common.network.AbstractServerPlayMessage;
-import com.ldtteam.common.network.PlayMessageType;
+import com.ldtteam.structurize.compat.common.network.AbstractServerPlayMessage;
+import com.ldtteam.structurize.compat.common.network.PlayMessageType;
 import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.items.ItemTagSubstitution;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.ldtteam.structurize.compat.common.network.PlayMessageContext;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -55,9 +55,9 @@ public class AbsorbBlockMessage extends AbstractServerPlayMessage
     }
 
     @Override
-    protected void onExecute(final IPayloadContext context, final ServerPlayer player)
+    protected void onExecute(final PlayMessageContext context, final ServerPlayer player)
     {
-        final ItemStack current = player.getInventory().getSelected();
+        final ItemStack current = player.getInventory().getSelectedItem();
 
         if (current.getItem() instanceof ItemTagSubstitution anchor)
         {

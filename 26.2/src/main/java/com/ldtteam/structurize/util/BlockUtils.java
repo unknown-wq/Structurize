@@ -1,6 +1,6 @@
 package com.ldtteam.structurize.util;
 
-import com.ldtteam.common.util.BlockToItemHelper;
+import com.ldtteam.structurize.compat.common.util.BlockToItemHelper;
 import com.ldtteam.domumornamentum.client.model.data.MaterialTextureData;
 import com.ldtteam.domumornamentum.entity.block.MateriallyTexturedBlockEntity;
 import com.ldtteam.structurize.api.ItemStackUtils;

@@ -1,7 +1,7 @@
 package com.ldtteam.structurize.network.messages;
 
-import com.ldtteam.common.network.AbstractClientPlayMessage;
-import com.ldtteam.common.network.PlayMessageType;
+import com.ldtteam.structurize.compat.common.network.AbstractClientPlayMessage;
+import com.ldtteam.structurize.compat.common.network.PlayMessageType;
 import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.storage.ClientStructurePackLoader;
 import io.netty.buffer.ByteBuf;
@@ -9,7 +9,7 @@ import io.netty.buffer.Unpooled;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.ldtteam.structurize.compat.common.network.PlayMessageContext;
 
 /**
  * Transfer a zipped structure pack to the client.
@@ -71,7 +71,7 @@ public class TransferStructurePackToClient extends AbstractClientPlayMessage
     }
 
     @Override
-    protected void onExecute(final IPayloadContext context, final Player player)
+    protected void onExecute(final PlayMessageContext context, final Player player)
     {
         ClientStructurePackLoader.onStructurePackTransfer(this.packname, this.payload, this.eol);
     }

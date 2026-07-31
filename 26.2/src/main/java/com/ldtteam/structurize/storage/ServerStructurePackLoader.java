@@ -7,11 +7,11 @@ import com.ldtteam.structurize.util.IOPool;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufOutputStream;
 import io.netty.buffer.Unpooled;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.ModContainer;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.ModList;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
-import net.neoforged.neoforgespi.language.IModInfo;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
@@ -58,6 +58,14 @@ public class ServerStructurePackLoader
     public static volatile ServerStructurePackLoader.ServerLoadingState loadingState = ServerLoadingState.UNINITIALIZED;
 
     /**
+     * Register the server side lifecycle hooks. Called from the mod initializer.
+     */
+    public static void register()
+    {
+        ServerTickEvents.END_SERVER_TICK.register(ServerStructurePackLoader::onWorldTick);
+    }
+
+    /**
      * Called on server mod construction.
      */
     public static void onServerStarting()
@@ -65,10 +73,12 @@ public class ServerStructurePackLoader
         loadingState = ServerLoadingState.LOADING;
         final List<Path> modPaths = new ArrayList<>();
         final List<String> modList = new ArrayList<>();
-        for (IModInfo mod : ModList.get().getMods())
+        for (final ModContainer mod : FabricLoader.getInstance().getAllMods())
         {
-            modPaths.add(mod.getOwningFile().getFile().findResource(BLUEPRINT_FOLDER, mod.getModId()));
-            modList.add(mod.getModId());
+            final String modId = mod.getMetadata().getId();
+            // Fabric equivalent of IModFile#findResource: resolve "<blueprints>/<modid>" inside the mod container.
+            mod.findPath(BLUEPRINT_FOLDER + "/" + modId).ifPresent(modPaths::add);
+            modList.add(modId);
         }
 
         final Path gameFolder = new File(".").toPath();
@@ -82,9 +92,11 @@ public class ServerStructurePackLoader
                 {
                     try
                     {
+                        // The last path element is the owning mod id ("<blueprints>/<modid>").
+                        final String owner = modPath.getFileName().toString();
                         try (final Stream<Path> paths = Files.list(modPath))
                         {
-                            paths.forEach(element -> StructurePacks.discoverPackAtPath(element, true, modList, false, modPath.toString().split("/")[1]));
+                            paths.forEach(element -> StructurePacks.discoverPackAtPath(element, true, modList, false, owner));
                         }
                     }
                     catch (IOException e)
@@ -177,15 +189,14 @@ public class ServerStructurePackLoader
         }
     }
 
-    @SubscribeEvent
-    public static void onWorldTick(final ServerTickEvent.Post event)
+    public static void onWorldTick(final MinecraftServer server)
     {
-        if (event.getServer().getTickCount() % 20 == 0 && loadingState == ServerLoadingState.FINISHED_LOADING && !clientSyncRequests.isEmpty())
+        if (server.getTickCount() % 20 == 0 && loadingState == ServerLoadingState.FINISHED_LOADING && !clientSyncRequests.isEmpty())
         {
             loadingState = ServerLoadingState.FINISHED_SYNCING;
             for (final Map.Entry<UUID, Map<String, Double>> entry : clientSyncRequests.entrySet())
             {
-                final ServerPlayer player = event.getServer().getPlayerList().getPlayer(entry.getKey());
+                final ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
                 if (player != null)
                 {
                     handleClientUpdate(entry.getValue(), player);
@@ -197,7 +208,7 @@ public class ServerStructurePackLoader
         if (!messageSendTasks.isEmpty())
         {
             final PackagedPack packData = messageSendTasks.poll();
-            final ServerPlayer player = event.getServer().getPlayerList().getPlayer(packData.player);
+            final ServerPlayer player = server.getPlayerList().getPlayer(packData.player);
             // If the player logged off, we can just skip.
             if (player != null)
             {

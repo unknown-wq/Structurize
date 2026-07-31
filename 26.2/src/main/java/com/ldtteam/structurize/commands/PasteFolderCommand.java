@@ -25,7 +25,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.server.command.EnumArgument;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -218,7 +217,7 @@ public class PasteFolderCommand extends AbstractCommand
         final BlockPos pos = BlockPosArgument.getSpawnablePos(context, POS);
         final String packName  = StringArgumentType.getString(context, PACK_NAME);
         final String path  = StringArgumentType.getString(context, FILE_PATH);
-        final RotationMirror rotMir = context.getArgument(ROT_MIR, RotationMirror.class);
+        final RotationMirror rotMir = getEnum(context, ROT_MIR, RotationMirror.class);
 
         return execute(context.getSource(), pos, packName, path, rotMir, true, 34);
     }
@@ -228,7 +227,7 @@ public class PasteFolderCommand extends AbstractCommand
         final BlockPos pos = BlockPosArgument.getSpawnablePos(context, POS);
         final String packName  = StringArgumentType.getString(context, PACK_NAME);
         final String path  = StringArgumentType.getString(context, FILE_PATH);
-        final RotationMirror rotMir = context.getArgument(ROT_MIR, RotationMirror.class);
+        final RotationMirror rotMir = getEnum(context, ROT_MIR, RotationMirror.class);
         final boolean pretty = BoolArgumentType.getBool(context, PRETTY);
 
         return execute(context.getSource(), pos, packName, path, rotMir, pretty, 34);
@@ -239,7 +238,7 @@ public class PasteFolderCommand extends AbstractCommand
         final BlockPos pos = BlockPosArgument.getSpawnablePos(context, POS);
         final String packName  = StringArgumentType.getString(context, PACK_NAME);
         final String path  = StringArgumentType.getString(context, FILE_PATH);
-        final RotationMirror rotMir = context.getArgument(ROT_MIR, RotationMirror.class);
+        final RotationMirror rotMir = getEnum(context, ROT_MIR, RotationMirror.class);
         final boolean pretty = BoolArgumentType.getBool(context, PRETTY);
         final int plotSize = IntegerArgumentType.getInteger(context, PLOT_SIZE);
 
@@ -253,7 +252,7 @@ public class PasteFolderCommand extends AbstractCommand
             .then(newArgument(PACK_NAME, StringArgumentType.string())
               .then(newArgument(FILE_PATH, StringArgumentType.string())
                 .executes(PasteFolderCommand::onExecute)
-                    .then(newArgument(ROT_MIR, EnumArgument.enumArgument(RotationMirror.class))
+                    .then(newEnumArgument(ROT_MIR, RotationMirror.class)
                       .executes(PasteFolderCommand::onExecuteWithRotationAndMirror)
                       .then(newArgument(PRETTY, BoolArgumentType.bool())
                         .executes(PasteFolderCommand::onExecuteWithPretty)

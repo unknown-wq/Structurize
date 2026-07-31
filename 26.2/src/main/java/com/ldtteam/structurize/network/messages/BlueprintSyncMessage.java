@@ -1,7 +1,7 @@
 package com.ldtteam.structurize.network.messages;
 
-import com.ldtteam.common.network.AbstractServerPlayMessage;
-import com.ldtteam.common.network.PlayMessageType;
+import com.ldtteam.structurize.compat.common.network.AbstractServerPlayMessage;
+import com.ldtteam.structurize.compat.common.network.PlayMessageType;
 import com.ldtteam.structurize.Structurize;
 import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.storage.BlueprintPlacementHandling;
@@ -9,7 +9,7 @@ import com.ldtteam.structurize.api.RotationMirror;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.ldtteam.structurize.compat.common.network.PlayMessageContext;
 import org.apache.commons.io.FilenameUtils;
 
 /**
@@ -87,7 +87,7 @@ public class BlueprintSyncMessage extends AbstractServerPlayMessage
     }
 
     @Override
-    protected void onExecute(final IPayloadContext context, final ServerPlayer player)
+    protected void onExecute(final PlayMessageContext context, final ServerPlayer player)
     {
         if (Structurize.getConfig().getServer().allowPlayerSchematics.get())
         {

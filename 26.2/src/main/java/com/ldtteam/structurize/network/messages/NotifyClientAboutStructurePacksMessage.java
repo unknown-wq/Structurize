@@ -1,13 +1,13 @@
 package com.ldtteam.structurize.network.messages;
 
-import com.ldtteam.common.network.AbstractClientPlayMessage;
-import com.ldtteam.common.network.PlayMessageType;
+import com.ldtteam.structurize.compat.common.network.AbstractClientPlayMessage;
+import com.ldtteam.structurize.compat.common.network.PlayMessageType;
 import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.storage.ClientStructurePackLoader;
 import com.ldtteam.structurize.storage.StructurePackMeta;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.ldtteam.structurize.compat.common.network.PlayMessageContext;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -64,7 +64,7 @@ public class NotifyClientAboutStructurePacksMessage extends AbstractClientPlayMe
     }
 
     @Override
-    protected void onExecute(final IPayloadContext context, final Player player)
+    protected void onExecute(final PlayMessageContext context, final Player player)
     {
         ClientStructurePackLoader.onServerSyncAttempt(this.serverStructurePacks);
     }

@@ -9,7 +9,7 @@ import com.ldtteam.structurize.placement.structure.CreativeStructureHandler;
 import com.ldtteam.structurize.placement.structure.IStructureHandler;
 import com.ldtteam.structurize.storage.StructurePacks;
 import com.ldtteam.structurize.api.RotationMirror;
-import com.mojang.authlib.GameProfile;
+import net.minecraft.server.players.NameAndId;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -24,7 +24,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.server.command.EnumArgument;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -182,7 +181,7 @@ public class PasteCommand extends AbstractCommand
         final BlockPos pos = BlockPosArgument.getSpawnablePos(context, POS);
         final String packName  = StringArgumentType.getString(context, PACK_NAME);
         final String path  = StringArgumentType.getString(context, FILE_PATH);
-        final RotationMirror rotMir = context.getArgument(ROT_MIR, RotationMirror.class);
+        final RotationMirror rotMir = getEnum(context, ROT_MIR, RotationMirror.class);
 
         return execute(context.getSource(), pos, packName, path, rotMir, true, context.getSource().getPlayer());
     }
@@ -192,7 +191,7 @@ public class PasteCommand extends AbstractCommand
         final BlockPos pos = BlockPosArgument.getSpawnablePos(context, POS);
         final String packName  = StringArgumentType.getString(context, PACK_NAME);
         final String path  = StringArgumentType.getString(context, FILE_PATH);
-        final RotationMirror rotMir = context.getArgument(ROT_MIR, RotationMirror.class);
+        final RotationMirror rotMir = getEnum(context, ROT_MIR, RotationMirror.class);
         final boolean pretty = BoolArgumentType.getBool(context, PRETTY);
 
         return execute(context.getSource(), pos, packName, path, rotMir, pretty, context.getSource().getPlayer());
@@ -203,9 +202,9 @@ public class PasteCommand extends AbstractCommand
         final BlockPos pos = BlockPosArgument.getSpawnablePos(context, POS);
         final String packName  = StringArgumentType.getString(context, PACK_NAME);
         final String path  = StringArgumentType.getString(context, FILE_PATH);
-        final RotationMirror rotMir = context.getArgument(ROT_MIR, RotationMirror.class);
+        final RotationMirror rotMir = getEnum(context, ROT_MIR, RotationMirror.class);
         final boolean pretty = BoolArgumentType.getBool(context, PRETTY);
-        final GameProfile profile = GameProfileArgument.getGameProfiles(context, PLAYER_NAME).stream().findFirst().orElse(null);
+        final NameAndId profile = GameProfileArgument.getGameProfiles(context, PLAYER_NAME).stream().findFirst().orElse(null);
 
         if (profile == null)
         {
@@ -213,7 +212,7 @@ public class PasteCommand extends AbstractCommand
             return 0;
         }
 
-        return execute(context.getSource(), pos, packName, path, rotMir, pretty, context.getSource().getLevel().getServer().getPlayerList().getPlayer(profile.getId()));
+        return execute(context.getSource(), pos, packName, path, rotMir, pretty, context.getSource().getLevel().getServer().getPlayerList().getPlayer(profile.id()));
     }
 
     protected static LiteralArgumentBuilder<CommandSourceStack> build()
@@ -223,7 +222,7 @@ public class PasteCommand extends AbstractCommand
             .then(newArgument(PACK_NAME, StringArgumentType.string())
               .then(newArgument(FILE_PATH, StringArgumentType.string())
                 .executes(PasteCommand::onExecute)
-                .then(newArgument(ROT_MIR, EnumArgument.enumArgument(RotationMirror.class))
+                .then(newEnumArgument(ROT_MIR, RotationMirror.class)
                   .executes(PasteCommand::onExecuteWithRotationAndMirror)
                       .then(newArgument(PRETTY, BoolArgumentType.bool())
                         .executes(PasteCommand::onExecuteWithFull)
