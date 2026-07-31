@@ -1,81 +1,88 @@
 package com.ldtteam.structurize.event;
 
-import com.ldtteam.common.language.LanguageHandler;
-import com.ldtteam.structurize.api.constants.Constants;
-import com.ldtteam.structurize.datagen.BlockEntityTagProvider;
-import com.ldtteam.structurize.datagen.BlockTagProvider;
-import com.ldtteam.structurize.datagen.EntityTagProvider;
 import com.ldtteam.structurize.network.messages.*;
 import com.ldtteam.structurize.storage.ServerStructurePackLoader;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.data.DataGenerator;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.ModList;
-import net.neoforged.fml.event.lifecycle.FMLDedicatedServerSetupEvent;
-import net.neoforged.fml.event.lifecycle.FMLLoadCompleteEvent;
-import net.neoforged.neoforge.data.event.GatherDataEvent;
-import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
-import net.neoforged.neoforge.network.registration.PayloadRegistrar;
-import org.jetbrains.annotations.NotNull;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 
+/**
+ * Common lifecycle hooks.
+ *
+ * <p>Port note: on NeoForge this class was a bundle of {@code @SubscribeEvent} methods on the mod bus —
+ * {@code RegisterPayloadHandlersEvent}, {@code FMLLoadCompleteEvent}, {@code FMLDedicatedServerSetupEvent}
+ * and {@code GatherDataEvent}. Fabric has no mod bus: {@link #register()} is called straight from
+ * {@link com.ldtteam.structurize.Structurize#onInitialize()} and installs the callbacks itself.</p>
+ *
+ * <ul>
+ * <li>Payload registration no longer needs a {@code PayloadRegistrar} nor a protocol version string — every
+ * message owns its {@code PlayMessageType} and registers itself.</li>
+ * <li>{@code FMLLoadCompleteEvent} was only used for {@code LanguageHandler.setMClanguageLoaded()}, which is
+ * client only and moved to {@link ClientLifecycleSubscriber}.</li>
+ * <li>Data generation is a separate Fabric entrypoint
+ * ({@code com.ldtteam.structurize.datagen.StructurizeDataGenerator}), so {@code onDatagen} is gone.</li>
+ * </ul>
+ */
 public class LifecycleSubscriber
 {
-    @SubscribeEvent
-    public static void onNetworkRegistry(final RegisterPayloadHandlersEvent event)
+    /**
+     * Private constructor to hide implicit public one.
+     */
+    private LifecycleSubscriber()
     {
-        final String modVersion = ModList.get().getModContainerById(Constants.MOD_ID).get().getModInfo().getVersion().toString();
-        final PayloadRegistrar registry = event.registrar(Constants.MOD_ID).versioned(modVersion);
-
-        AbsorbBlockMessage.TYPE.register(registry);
-        AddRemoveTagMessage.TYPE.register(registry);
-        BlueprintSyncMessage.TYPE.register(registry);
-        BuildToolPlacementMessage.TYPE.register(registry);
-        ClientBlueprintRequestMessage.TYPE.register(registry);
-        FillTopPlaceholderMessage.TYPE.register(registry);
-        ItemMiddleMouseMessage.TYPE.register(registry);
-        NotifyClientAboutStructurePacksMessage.TYPE.register(registry);
-        NotifyServerAboutStructurePacksMessage.TYPE.register(registry);
-        OperationHistoryMessage.TYPE.register(registry);
-        RemoveBlockMessage.TYPE.register(registry);
-        RemoveEntityMessage.TYPE.register(registry);
-        ReplaceBlockMessage.TYPE.register(registry);
-        SaveScanMessage.TYPE.register(registry);
-        ScanOnServerMessage.TYPE.register(registry);
-        ScanToolTeleportMessage.TYPE.register(registry);
-        SetTagInTool.TYPE.register(registry);
-        ShowScanMessage.TYPE.register(registry);
-        SyncPreviewCacheToClient.TYPE.register(registry);
-        SyncPreviewCacheToServer.TYPE.register(registry);
-        SyncSettingsToServer.TYPE.register(registry);
-        TransferStructurePackToClient.TYPE.register(registry);
-        UndoRedoMessage.TYPE.register(registry);
-        UpdateClientRender.TYPE.register(registry);
-        UpdateScanToolMessage.TYPE.register(registry);
+        /*
+         * Intentionally left empty
+         */
     }
 
     /**
-     * Called when MC loading is about to finish.
-     *
-     * @param event event
+     * Installs every common lifecycle callback. Called once from the mod initializer.
      */
-    @SubscribeEvent
-    public static void onLoadComplete(final FMLLoadCompleteEvent event)
+    public static void register()
     {
-        LanguageHandler.setMClanguageLoaded();
+        registerMessages();
+
+        // NeoForge fired FMLDedicatedServerSetupEvent, which never runs for the integrated server; Fabric's
+        // SERVER_STARTING runs for both, so the dedicated check is kept explicitly. In single player the
+        // packs are loaded by ClientStructurePackLoader and the server side has to stay UNINITIALIZED.
+        ServerLifecycleEvents.SERVER_STARTING.register(server ->
+        {
+            if (server.isDedicatedServer())
+            {
+                ServerStructurePackLoader.onServerStarting();
+            }
+        });
     }
 
-    @SubscribeEvent
-    public static void onDedicatedServerInit(final FMLDedicatedServerSetupEvent event)
+    /**
+     * Publishes the codecs of all 25 play payloads and installs the serverbound receivers. The clientbound
+     * receivers are installed later, from the client entrypoint, by
+     * {@link com.ldtteam.structurize.compat.common.network.PlayMessageType#registerClientReceivers()}.
+     */
+    private static void registerMessages()
     {
-        ServerStructurePackLoader.onServerStarting();
-    }
-
-    @SubscribeEvent
-    public static void onDatagen(@NotNull final GatherDataEvent event)
-    {
-        final DataGenerator generator = event.getGenerator();
-        generator.addProvider(event.includeServer(), new BlockEntityTagProvider(event.getGenerator().getPackOutput(), Registries.BLOCK_ENTITY_TYPE, event.getLookupProvider(), event.getExistingFileHelper()));
-        generator.addProvider(event.includeServer(), new BlockTagProvider(event.getGenerator().getPackOutput(), Registries.BLOCK, event.getLookupProvider(), event.getExistingFileHelper()));
-        generator.addProvider(event.includeClient(), new EntityTagProvider(event.getGenerator().getPackOutput(), Registries.ENTITY_TYPE, event.getLookupProvider(), event.getExistingFileHelper()));
+        AbsorbBlockMessage.TYPE.register();
+        AddRemoveTagMessage.TYPE.register();
+        BlueprintSyncMessage.TYPE.register();
+        BuildToolPlacementMessage.TYPE.register();
+        ClientBlueprintRequestMessage.TYPE.register();
+        FillTopPlaceholderMessage.TYPE.register();
+        ItemMiddleMouseMessage.TYPE.register();
+        NotifyClientAboutStructurePacksMessage.TYPE.register();
+        NotifyServerAboutStructurePacksMessage.TYPE.register();
+        OperationHistoryMessage.TYPE.register();
+        RemoveBlockMessage.TYPE.register();
+        RemoveEntityMessage.TYPE.register();
+        ReplaceBlockMessage.TYPE.register();
+        SaveScanMessage.TYPE.register();
+        ScanOnServerMessage.TYPE.register();
+        ScanToolTeleportMessage.TYPE.register();
+        SetTagInTool.TYPE.register();
+        ShowScanMessage.TYPE.register();
+        SyncPreviewCacheToClient.TYPE.register();
+        SyncPreviewCacheToServer.TYPE.register();
+        SyncSettingsToServer.TYPE.register();
+        TransferStructurePackToClient.TYPE.register();
+        UndoRedoMessage.TYPE.register();
+        UpdateClientRender.TYPE.register();
+        UpdateScanToolMessage.TYPE.register();
     }
 }

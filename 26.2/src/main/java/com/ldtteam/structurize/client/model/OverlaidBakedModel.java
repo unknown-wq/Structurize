@@ -1,33 +1,36 @@
 package com.ldtteam.structurize.client.model;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.world.item.ItemDisplayContext;
-import net.neoforged.neoforge.client.model.BakedModelWrapper;
-import org.jetbrains.annotations.NotNull;
-
 /**
- * This exists because it seems to be the only way to override {@link #isCustomRenderer}...
+ * This exists because it seems to be the only way to override {@code BakedModel#isCustomRenderer}...
+ *
+ * <p>Port note (26.2): there is no {@code BakedModel} any more, no {@code BakedModelWrapper}, no
+ * {@code isCustomRenderer()} and no {@code applyTransform(...)}. A block that wants bespoke geometry now
+ * either ships a {@code BlockStateModel} through {@code fabric-model-loading-api-v1} or declares a
+ * {@code SpecialModelRenderer}. The whole "wrap a model just to flag it as custom-rendered" idea is gone
+ * together with {@code BlockEntityWithoutLevelRenderer}.</p>
  */
-public class OverlaidBakedModel extends BakedModelWrapper<BakedModel>
+// TODO(port-26.2): DISABLED — BakedModel/BakedModelWrapper/isCustomRenderer removed in 26.2; the anchor block
+//  falls back to its plain parent model (assets/structurize/models/block/blocktagsubstitutionoverlay.json),
+//  since vanilla ignores the now-meaningless "loader" key of blocktagsubstitution.json.
+public final class OverlaidBakedModel
 {
-    public OverlaidBakedModel(@NotNull final BakedModel overlay)
+    private OverlaidBakedModel()
     {
-        super(overlay);
     }
 
-    @Override
-    public boolean isCustomRenderer()
+    /*
+    public class OverlaidBakedModel extends BakedModelWrapper<BakedModel>
     {
-        return true;
-    }
+        public OverlaidBakedModel(final BakedModel overlay) { super(overlay); }
 
-    @NotNull
-    @Override
-    public BakedModel applyTransform(@NotNull final ItemDisplayContext transformType,
-                                     @NotNull final PoseStack poseStack,
-                                     final boolean applyLeftHandTransform)
-    {
-        return new OverlaidBakedModel(originalModel.applyTransform(transformType, poseStack, applyLeftHandTransform));
+        @Override
+        public boolean isCustomRenderer() { return true; }
+
+        @Override
+        public BakedModel applyTransform(final ItemDisplayContext transformType, final PoseStack poseStack, final boolean applyLeftHandTransform)
+        {
+            return new OverlaidBakedModel(originalModel.applyTransform(transformType, poseStack, applyLeftHandTransform));
+        }
     }
+    */
 }

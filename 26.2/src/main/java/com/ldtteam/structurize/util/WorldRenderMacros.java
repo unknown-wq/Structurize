@@ -1,40 +1,62 @@
 package com.ldtteam.structurize.util;
 
+import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.client.BlueprintHandler;
 import com.ldtteam.structurize.storage.rendering.types.BlueprintPreviewData;
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.PrimitiveTopology;
+import com.mojang.blaze3d.pipeline.BlendFunction;
+import com.mojang.blaze3d.pipeline.ColorTargetState;
+import com.mojang.blaze3d.pipeline.DepthStencilState;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.platform.CompareOp;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraft.client.renderer.rendertype.RenderSetup;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.state.level.LevelRenderState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.client.event.RegisterRenderBuffersEvent;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fStack;
-import org.lwjgl.opengl.GL30C;
 
 import java.util.Collection;
 import java.util.List;
 
 public abstract class WorldRenderMacros
 {
+    /**
+     * Replacement for NeoForge's {@code RenderLevelStageEvent.Stage}. 26.2 draws the level from a submit
+     * queue, so there are no "stages" to hook any more: every mod submission happens inside a single
+     * {@link LevelRenderEvents#COLLECT_SUBMITS} callback and the actual draw order is decided by the
+     * render type (see {@code SubmitNodeCollection#submitCustomGeometry}). The enum survives only so the
+     * call sites keep choosing <i>what</i> to draw the way they used to.
+     */
+    // TODO(port-26.2): DEGRADED — RenderLevelStageEvent.Stage is NeoForge-only and has no 26.2 counterpart;
+    //  all three stages now fire back to back from one COLLECT_SUBMITS callback, ordering is up to the render type.
+    public enum Stage
+    {
+        AFTER_ENTITIES,
+        AFTER_BLOCK_ENTITIES,
+        AFTER_TRANSLUCENT_BLOCKS
+    }
+
     // 4 chunks squared
     public static final int MAX_DEBUG_TEXT_RENDER_DIST_SQUARED = Mth.square(4 * 16);
     public static final RenderType LINES = RenderTypes.LINES;
@@ -48,10 +70,15 @@ public abstract class WorldRenderMacros
     public static final float DEFAULT_LINE_WIDTH = 0.025f;
 
     public Minecraft mc;
-    public RenderLevelStageEvent event;
     public LocalPlayer clientPlayer;
-    public BufferSource bufferSource;
+    /**
+     * Where all world geometry goes in 26.2; replaces the old {@code MultiBufferSource.BufferSource}.
+     */
+    public SubmitNodeCollector submitNodeCollector;
     public PoseStack poseStack;
+    public LevelRenderState levelRenderState;
+    public CameraRenderState cameraRenderState;
+    public Frustum frustum;
     public DeltaTracker deltaTracker;
     public ClientLevel clientLevel;
     public ItemStack mainHandItem;
@@ -62,43 +89,50 @@ public abstract class WorldRenderMacros
     public int clientRenderDist;
 
     /**
-     * Call this from event handler
-     * 
-     * @param event
+     * Hooks this instance into the level renderer. Call once from the client entry point; replaces the
+     * NeoForge {@code @SubscribeEvent} on {@code RenderLevelStageEvent}.
      */
-    public void renderWorldLastEvent(final RenderLevelStageEvent e)
+    public final void registerLevelRenderCallbacks()
+    {
+        LevelRenderEvents.COLLECT_SUBMITS.register(this::renderWorldLastEvent);
+    }
+
+    /**
+     * Call this from the level render callback.
+     *
+     * @param ctx fabric level render context
+     */
+    public void renderWorldLastEvent(final LevelRenderContext ctx)
     {
         mc = Minecraft.getInstance();
-        event = e;
         clientPlayer = mc.player;
         if (clientPlayer == null) // server login phase
         {
             return;
         }
 
-        bufferSource = mc.renderBuffers().bufferSource();
-        poseStack = event.getPoseStack();
-        deltaTracker = event.getPartialTick();
+        submitNodeCollector = ctx.submitNodeCollector();
+        poseStack = ctx.poseStack();
+        levelRenderState = ctx.levelState();
+        cameraRenderState = levelRenderState.cameraRenderState;
+        frustum = cameraRenderState.cullFrustum;
+        cameraPosition = cameraRenderState.pos;
+        deltaTracker = mc.getDeltaTracker();
         clientLevel = mc.level;
         mainHandItem = clientPlayer.getMainHandItem();
-        cameraPosition = event.getCamera().getPosition();
         clientRenderDist = mc.options.renderDistance().get();
 
-        final Matrix4fStack mvMatrix = RenderSystem.getModelViewStack();
-        mvMatrix.pushMatrix();
-        mvMatrix.identity();
-        mvMatrix.mul(event.getModelViewMatrix());
-        RenderSystem.applyModelViewMatrix();
-
-        renderWithinContext(event.getStage());
-
-        RenderSystem.getModelViewStack().popMatrix();
-        RenderSystem.applyModelViewMatrix();
+        // TODO(port-26.2): DEGRADED — the model view matrix is no longer pushed by hand; 26.2 feeds the
+        //  pose through the submit node and RenderSystem#applyModelViewMatrix no longer exists.
+        for (final Stage stage : Stage.values())
+        {
+            renderWithinContext(stage);
+        }
     }
 
     /**
      * This is called with properly prepared context. Do here what you want
-     * 
+     *
      * @param stage render world stage
      */
     protected abstract void renderWithinContext(Stage stage);
@@ -119,18 +153,25 @@ public abstract class WorldRenderMacros
         poseStack.popPose();
     }
 
+    // TODO(port-26.2): DISABLED — RenderSystem#applyModelViewMatrix is gone in 26.2; the model view matrix
+    //  is owned by the submit pipeline and cannot be pushed from mod code. No caller inside Structurize.
     public void pushShaderMvMatrixFromPose()
     {
+        /*
         final Matrix4fStack mvMatrix = RenderSystem.getModelViewStack();
         mvMatrix.pushMatrix();
         mvMatrix.mul(poseStack.last().pose());
         RenderSystem.applyModelViewMatrix();
+        */
     }
 
+    // TODO(port-26.2): DISABLED — see pushShaderMvMatrixFromPose
     public void popShaderMvMatrix()
     {
+        /*
         RenderSystem.getModelViewStack().popMatrix();
         RenderSystem.applyModelViewMatrix();
+        */
     }
 
     /**
@@ -138,7 +179,7 @@ public abstract class WorldRenderMacros
      */
     public final boolean isVisible(final AABB aabb)
     {
-        return event.getFrustum().isVisible(aabb);
+        return frustum.isVisible(aabb);
     }
 
     /**
@@ -154,13 +195,14 @@ public abstract class WorldRenderMacros
      */
     public final boolean isVisible(final BlockPos posA, final BlockPos posB)
     {
-        return event.getFrustum()
-            .cubeInFrustum(Math.min(posA.getX(), posB.getX()),
-                Math.min(posA.getY(), posB.getY()),
-                Math.min(posA.getZ(), posB.getZ()),
-                Math.max(posA.getX(), posB.getX()) + 1,
-                Math.max(posA.getY(), posB.getY()) + 1,
-                Math.max(posA.getZ(), posB.getZ()) + 1);
+        // Frustum#cubeInFrustum(DDDDDD) is private in 26.2 AND returns an int (-1/-2 mean visible), so the
+        // public AABB overload is both cheaper to reach and less error prone.
+        return frustum.isVisible(new AABB(Math.min(posA.getX(), posB.getX()),
+            Math.min(posA.getY(), posB.getY()),
+            Math.min(posA.getZ(), posB.getZ()),
+            Math.max(posA.getX(), posB.getX()) + 1,
+            Math.max(posA.getY(), posB.getY()) + 1,
+            Math.max(posA.getZ(), posB.getZ()) + 1));
     }
 
     /**
@@ -171,7 +213,7 @@ public abstract class WorldRenderMacros
      */
     public final void renderBlueprint(final BlueprintPreviewData blueprint, final BlockPos pos)
     {
-        BlueprintHandler.getInstance().draw(blueprint, pos, event);
+        BlueprintHandler.getInstance().draw(blueprint, pos, this);
     }
 
     /**
@@ -182,7 +224,7 @@ public abstract class WorldRenderMacros
      */
     public final void renderBlueprint(final BlueprintPreviewData blueprint, final Collection<BlockPos> points)
     {
-        BlueprintHandler.getInstance().drawAtListOfPositions(blueprint, points, event);
+        BlueprintHandler.getInstance().drawAtListOfPositions(blueprint, points, this);
     }
 
     /**
@@ -371,7 +413,13 @@ public abstract class WorldRenderMacros
         final float maxY2 = maxY - lineWidth;
         final float maxZ2 = maxZ - lineWidth;
 
-        populateRenderLineBox(minX, minY, minZ, minX2, minY2, minZ2, maxX, maxY, maxZ, maxX2, maxY2, maxZ2, red, green, blue, alpha, poseStack.last().pose(), bufferSource.getBuffer(renderType));
+        // effectively final copies for the lambda: the parameters above are reassigned
+        final float fMinX = minX, fMinY = minY, fMinZ = minZ, fMaxX = maxX, fMaxY = maxY, fMaxZ = maxZ;
+
+        submitNodeCollector.submitCustomGeometry(poseStack,
+            renderType,
+            (pose, buffer) -> populateRenderLineBox(fMinX, fMinY, fMinZ, minX2, minY2, minZ2, fMaxX, fMaxY, fMaxZ, maxX2, maxY2, maxZ2,
+                red, green, blue, alpha, pose.pose(), buffer));
     }
 
     // TODO: ebo this, does vanilla have any ebo things?
@@ -838,7 +886,9 @@ public abstract class WorldRenderMacros
         final float maxY = Math.max(posA.getY(), posB.getY()) + 1;
         final float maxZ = Math.max(posA.getZ(), posB.getZ()) + 1;
 
-        populateCuboid(minX, minY, minZ, maxX, maxY, maxZ, red, green, blue, alpha, poseStack.last().pose(), bufferSource.getBuffer(renderType));
+        submitNodeCollector.submitCustomGeometry(poseStack,
+            renderType,
+            (pose, buffer) -> populateCuboid(minX, minY, minZ, maxX, maxY, maxZ, red, green, blue, alpha, pose.pose(), buffer));
     }
 
     protected final void populateCuboid(final float minX,
@@ -916,17 +966,19 @@ public abstract class WorldRenderMacros
         final int h,
         final int argbColor)
     {
-        populateRectangle(x,
-            y,
-            z,
-            w,
-            h,
-            (argbColor >> 16) & 0xff,
-            (argbColor >> 8) & 0xff,
-            argbColor & 0xff,
-            (argbColor >> 24) & 0xff,
-            bufferSource.getBuffer(COLORED_TRIANGLES_NC_ND),
-            poseStack.last().pose());
+        submitNodeCollector.submitCustomGeometry(poseStack,
+            COLORED_TRIANGLES_NC_ND,
+            (pose, buffer) -> populateRectangle(x,
+                y,
+                z,
+                w,
+                h,
+                (argbColor >> 16) & 0xff,
+                (argbColor >> 8) & 0xff,
+                argbColor & 0xff,
+                (argbColor >> 24) & 0xff,
+                buffer,
+                pose.pose()));
     }
 
     protected final void populateRectangle(final int x,
@@ -996,21 +1048,21 @@ public abstract class WorldRenderMacros
             throw new IllegalArgumentException("mergeEveryXListElements is less than 1");
         }
 
-        final EntityRenderDispatcher erm = Minecraft.getInstance().getEntityRenderDispatcher();
         final int cap = text.size();
-        if (cap > 0 && erm.distanceToSqr(worldPos.getX(), worldPos.getY(), worldPos.getZ()) <= MAX_DEBUG_TEXT_RENDER_DIST_SQUARED)
+        // EntityRenderDispatcher#distanceToSqr(double,double,double) is gone in 26.2 (only the Entity overload
+        // survives), so the distance is measured against the extracted camera position instead.
+        if (cap > 0 && cameraPosition.distanceToSqr(worldPos.getX() + 0.5, worldPos.getY() + 0.5, worldPos.getZ() + 0.5)
+            <= MAX_DEBUG_TEXT_RENDER_DIST_SQUARED)
         {
             final Font fontrenderer = Minecraft.getInstance().font;
 
             poseStack.pushPose();
             poseStack.translate(renderPos.getX() + 0.5d, renderPos.getY() + 0.6d, renderPos.getZ() + 0.5d);
-            poseStack.mulPose(erm.cameraOrientation());
+            poseStack.mulPose(cameraRenderState.orientation);
             poseStack.scale(0.014f, -0.014f, 0.014f);
 
             final float backgroundTextOpacity = Minecraft.getInstance().options.getBackgroundOpacity(0.25F);
             final int alphaMask = (int) (backgroundTextOpacity * 255.0F) << 24;
-
-            final Matrix4f rawPosMatrix = poseStack.last().pose();
 
             for (int i = 0; i < cap; i += mergeEveryXListElements)
             {
@@ -1018,19 +1070,28 @@ public abstract class WorldRenderMacros
                     mergeEveryXListElements == 1 ? text.get(i) : text.subList(i, Math.min(i + mergeEveryXListElements, cap)).toString());
                 final float textCenterShift = (float) (-fontrenderer.width(renderText) / 2);
 
-                fontrenderer.drawInBatch(renderText,
+                submitNodeCollector.submitText(poseStack,
                     textCenterShift,
                     0,
-                    forceWhite ? 0xffffffff : 0x20ffffff,
+                    renderText.getVisualOrderText(),
                     false,
-                    rawPosMatrix,
-                    bufferSource,
                     Font.DisplayMode.SEE_THROUGH,
+                    0x00f000f0,
+                    forceWhite ? 0xffffffff : 0x20ffffff,
                     alphaMask,
-                    0x00f000f0);
+                    0);
                 if (!forceWhite)
                 {
-                    fontrenderer.drawInBatch(renderText, textCenterShift, 0, 0xffffffff, false, rawPosMatrix, bufferSource, Font.DisplayMode.NORMAL, 0, 0x00f000f0);
+                    submitNodeCollector.submitText(poseStack,
+                        textCenterShift,
+                        0,
+                        renderText.getVisualOrderText(),
+                        false,
+                        Font.DisplayMode.NORMAL,
+                        0x00f000f0,
+                        0xffffffff,
+                        0,
+                        0);
                 }
                 poseStack.translate(0.0d, fontrenderer.lineHeight + 1, 0.0d);
             }
@@ -1039,225 +1100,83 @@ public abstract class WorldRenderMacros
         }
     }
 
-    public static final class RenderTypes extends RenderType
+    /**
+     * Structurize's own render types.
+     *
+     * <p>Port note: in 1.21.1 this class extended {@link RenderType} to reach the protected
+     * {@code RenderStateShard} constants and built each type with {@code CompositeState.builder()}. Both are
+     * gone in 26.2 — {@code RenderStateShard} does not exist any more and {@code RenderType} has a private
+     * constructor. The only factory left is {@code RenderType.create(String, RenderSetup)} where
+     * {@link RenderSetup} wraps a Blaze3D {@link RenderPipeline}, so every shard (transparency, depth test,
+     * cull, write mask) is now a pipeline property.</p>
+     *
+     * <p>Two traps worth remembering: 26.2 uses a <b>reversed depth buffer</b>, so the equivalent of the old
+     * {@code LEQUAL_DEPTH_TEST} is {@link CompareOp#GREATER_THAN_OR_EQUAL} (that is what
+     * {@code DepthStencilState.DEFAULT} is), and the old {@code COLOR_WRITE} / {@code COLOR_DEPTH_WRITE}
+     * shards are now just the {@code writeDepth} flag of {@link DepthStencilState}.</p>
+     */
+    public static final class RenderTypes
     {
-        private RenderTypes(final String nameIn,
-            final VertexFormat formatIn,
-            final VertexFormat.Mode drawModeIn,
-            final int bufferSizeIn,
-            final boolean useDelegateIn,
-            final boolean needsSortingIn,
-            final Runnable setupTaskIn,
-            final Runnable clearTaskIn)
+        private RenderTypes()
         {
-            super(nameIn, formatIn, drawModeIn, bufferSizeIn, useDelegateIn, needsSortingIn, setupTaskIn, clearTaskIn);
             throw new IllegalStateException();
         }
 
-        private static final RenderType GLINT_LINES = create("structurize_glint_lines",
-            DefaultVertexFormat.POSITION_COLOR,
-            VertexFormat.Mode.DEBUG_LINES,
-            1 << 12,
-            false,
-            false,
-            RenderType.CompositeState.builder()
-                .setTextureState(NO_TEXTURE)
-                .setShaderState(POSITION_COLOR_SHADER)
-                .setTransparencyState(GLINT_TRANSPARENCY)
-                .setDepthTestState(NeverDepthTestStateShard.NEVER_DEPTH_TEST)
-                .setCullState(NO_CULL)
-                .setLightmapState(NO_LIGHTMAP)
-                .setOverlayState(NO_OVERLAY)
-                .setLayeringState(NO_LAYERING)
-                .setOutputState(MAIN_TARGET)
-                .setTexturingState(DEFAULT_TEXTURING)
-                .setWriteMaskState(COLOR_WRITE)
-                .createCompositeState(false));
-
-        private static final RenderType GLINT_LINES_WITH_WIDTH = create("structurize_glint_lines_with_width",
-            DefaultVertexFormat.POSITION_COLOR,
-            VertexFormat.Mode.TRIANGLES,
-            1 << 13,
-            false,
-            false,
-            RenderType.CompositeState.builder()
-                .setTextureState(NO_TEXTURE)
-                .setShaderState(POSITION_COLOR_SHADER)
-                .setTransparencyState(GLINT_TRANSPARENCY)
-                .setDepthTestState(AlwaysDepthTestStateShard.ALWAYS_DEPTH_TEST)
-                .setCullState(CULL)
-                .setLightmapState(NO_LIGHTMAP)
-                .setOverlayState(NO_OVERLAY)
-                .setLayeringState(NO_LAYERING)
-                .setOutputState(MAIN_TARGET)
-                .setTexturingState(DEFAULT_TEXTURING)
-                .setWriteMaskState(COLOR_DEPTH_WRITE)
-                .createCompositeState(false));
-
-        private static final RenderType LINES = create("structurize_lines",
-            DefaultVertexFormat.POSITION_COLOR,
-            VertexFormat.Mode.DEBUG_LINES,
-            1 << 14,
-            false,
-            false,
-            RenderType.CompositeState.builder()
-                .setTextureState(NO_TEXTURE)
-                .setShaderState(POSITION_COLOR_SHADER)
-                .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
-                .setDepthTestState(LEQUAL_DEPTH_TEST)
-                .setCullState(NO_CULL)
-                .setLightmapState(NO_LIGHTMAP)
-                .setOverlayState(NO_OVERLAY)
-                .setLayeringState(NO_LAYERING)
-                .setOutputState(MAIN_TARGET)
-                .setTexturingState(DEFAULT_TEXTURING)
-                .setWriteMaskState(COLOR_WRITE)
-                .createCompositeState(false));
-
-        private static final RenderType LINES_WITH_WIDTH = create("structurize_lines_with_width",
-            DefaultVertexFormat.POSITION_COLOR,
-            VertexFormat.Mode.TRIANGLES,
-            1 << 13,
-            false,
-            false,
-            RenderType.CompositeState.builder()
-                .setTextureState(NO_TEXTURE)
-                .setShaderState(POSITION_COLOR_SHADER)
-                .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
-                .setDepthTestState(LEQUAL_DEPTH_TEST)
-                .setCullState(CULL)
-                .setLightmapState(NO_LIGHTMAP)
-                .setOverlayState(NO_OVERLAY)
-                .setLayeringState(NO_LAYERING)
-                .setOutputState(MAIN_TARGET)
-                .setTexturingState(DEFAULT_TEXTURING)
-                .setWriteMaskState(COLOR_DEPTH_WRITE)
-                .createCompositeState(false));
-
-        private static final RenderType LINES_WITH_WIDTH_DEPTH_INVERT = create("structurize_lines_with_width_depth_invert",
-            DefaultVertexFormat.POSITION_COLOR,
-            VertexFormat.Mode.TRIANGLES,
-            1 << 12,
-            false,
-            false,
-            RenderType.CompositeState.builder()
-                .setTextureState(NO_TEXTURE)
-                .setShaderState(POSITION_COLOR_SHADER)
-                .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
-                .setDepthTestState(GREATER_DEPTH_TEST)
-                .setCullState(CULL)
-                .setLightmapState(NO_LIGHTMAP)
-                .setOverlayState(NO_OVERLAY)
-                .setLayeringState(NO_LAYERING)
-                .setOutputState(MAIN_TARGET)
-                .setTexturingState(DEFAULT_TEXTURING)
-                .setWriteMaskState(COLOR_WRITE)
-                .createCompositeState(false));
-
-        private static final RenderType COLORED_TRIANGLES = create("structurize_colored_triangles",
-            DefaultVertexFormat.POSITION_COLOR,
-            VertexFormat.Mode.TRIANGLES,
-            1 << 13,
-            false,
-            false,
-            RenderType.CompositeState.builder()
-                .setTextureState(NO_TEXTURE)
-                .setShaderState(POSITION_COLOR_SHADER)
-                .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
-                .setDepthTestState(LEQUAL_DEPTH_TEST)
-                .setCullState(CULL)
-                .setLightmapState(NO_LIGHTMAP)
-                .setOverlayState(NO_OVERLAY)
-                .setLayeringState(NO_LAYERING)
-                .setOutputState(MAIN_TARGET)
-                .setTexturingState(DEFAULT_TEXTURING)
-                .setWriteMaskState(COLOR_DEPTH_WRITE)
-                .createCompositeState(false));
-
-        private static final RenderType COLORED_TRIANGLES_NC_ND = create("structurize_colored_triangles_nc_nd",
-            DefaultVertexFormat.POSITION_COLOR,
-            VertexFormat.Mode.TRIANGLES,
-            1 << 12,
-            false,
-            false,
-            RenderType.CompositeState.builder()
-                .setTextureState(NO_TEXTURE)
-                .setShaderState(POSITION_COLOR_SHADER)
-                .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
-                .setDepthTestState(NeverDepthTestStateShard.NEVER_DEPTH_TEST)
-                .setCullState(NO_CULL)
-                .setLightmapState(NO_LIGHTMAP)
-                .setOverlayState(NO_OVERLAY)
-                .setLayeringState(NO_LAYERING)
-                .setOutputState(MAIN_TARGET)
-                .setTexturingState(DEFAULT_TEXTURING)
-                .setWriteMaskState(COLOR_WRITE)
-                .createCompositeState(false));
-
-        /**
-         * Register our buffers
-         */
-        public static void registerBuffer(final RegisterRenderBuffersEvent event)
+        private static RenderPipeline pipeline(final String name,
+            final PrimitiveTopology topology,
+            final BlendFunction blend,
+            final CompareOp depthTest,
+            final boolean writeDepth,
+            final boolean cull)
         {
-            event.registerRenderBuffer(LINES);
-            event.registerRenderBuffer(LINES_WITH_WIDTH);
-            event.registerRenderBuffer(LINES_WITH_WIDTH_DEPTH_INVERT);
-            event.registerRenderBuffer(GLINT_LINES);
-            event.registerRenderBuffer(GLINT_LINES_WITH_WIDTH);
-            event.registerRenderBuffer(COLORED_TRIANGLES);
-            event.registerRenderBuffer(COLORED_TRIANGLES_NC_ND);
-        }
-    
-        /**
-         * Managed by structurize, ends above buffers in context similar to {@link RenderType#LINES}
-         */
-        public static void finishBuffer(final RenderLevelStageEvent event)
-        {
-            final MultiBufferSource.BufferSource bufferSource = Minecraft.getInstance().renderBuffers().bufferSource();
-            final Stage stage = event.getStage();
-
-            if (stage == Stage.AFTER_BLOCK_ENTITIES)
-            {
-                bufferSource.endBatch(LINES_WITH_WIDTH_DEPTH_INVERT);
-
-                bufferSource.endBatch(COLORED_TRIANGLES);
-                bufferSource.endBatch(COLORED_TRIANGLES_NC_ND);
-
-                bufferSource.endBatch(LINES);
-                bufferSource.endBatch(LINES_WITH_WIDTH);
-
-                // fallthrough into levelRenderer master endBatch
-                // bufferSource.endBatch(GLINT_LINES);
-                // bufferSource.endBatch(GLINT_LINES_WITH_WIDTH);
-            }
+            return RenderPipelines.register(RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
+                .withLocation(Identifier.fromNamespaceAndPath(Constants.MOD_ID, "pipeline/" + name))
+                .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
+                .withPrimitiveTopology(topology)
+                .withColorTargetState(new ColorTargetState(blend))
+                .withDepthStencilState(new DepthStencilState(depthTest, writeDepth))
+                .withCull(cull)
+                .build());
         }
 
-        public static class NeverDepthTestStateShard extends DepthTestStateShard
-        {
-            public static final DepthTestStateShard NEVER_DEPTH_TEST = new NeverDepthTestStateShard();
+        // TODO(port-26.2): DEGRADED — the old NEVER_DEPTH_TEST shard called RenderSystem.depthFunc(GL_NEVER),
+        //  which can never pass the depth test at all. Mapped literally onto CompareOp.NEVER_PASS; both users
+        //  (GLINT_LINES, COLORED_TRIANGLES_NC_ND) are unreferenced inside Structurize.
+        static final RenderType GLINT_LINES = RenderType.create("structurize_glint_lines",
+            RenderSetup.builder(pipeline("structurize_glint_lines",
+                PrimitiveTopology.DEBUG_LINES, BlendFunction.GLINT, CompareOp.NEVER_PASS, false, false)).createRenderSetup());
 
-            private NeverDepthTestStateShard()
-            {
-                super("true_never", -1);
-                setupState = () -> {
-                    RenderSystem.enableDepthTest();
-                    RenderSystem.depthFunc(GL30C.GL_NEVER);
-                };
-            }
-        }
+        static final RenderType GLINT_LINES_WITH_WIDTH = RenderType.create("structurize_glint_lines_with_width",
+            RenderSetup.builder(pipeline("structurize_glint_lines_with_width",
+                PrimitiveTopology.TRIANGLES, BlendFunction.GLINT, CompareOp.ALWAYS_PASS, true, true)).createRenderSetup());
 
-        public static class AlwaysDepthTestStateShard extends DepthTestStateShard
-        {
-            public static final DepthTestStateShard ALWAYS_DEPTH_TEST = new AlwaysDepthTestStateShard();
+        static final RenderType LINES = RenderType.create("structurize_lines",
+            RenderSetup.builder(pipeline("structurize_lines",
+                PrimitiveTopology.DEBUG_LINES, BlendFunction.TRANSLUCENT, CompareOp.GREATER_THAN_OR_EQUAL, false, false)).createRenderSetup());
 
-            private AlwaysDepthTestStateShard()
-            {
-                super("true_always", -1);
-                setupState = () -> {
-                    RenderSystem.enableDepthTest();
-                    RenderSystem.depthFunc(GL30C.GL_ALWAYS);
-                };
-            }
-        }
+        static final RenderType LINES_WITH_WIDTH = RenderType.create("structurize_lines_with_width",
+            RenderSetup.builder(pipeline("structurize_lines_with_width",
+                PrimitiveTopology.TRIANGLES, BlendFunction.TRANSLUCENT, CompareOp.GREATER_THAN_OR_EQUAL, true, true)).createRenderSetup());
+
+        // depth inverted: 26.2 depth is reversed, so the old GREATER_DEPTH_TEST becomes LESS_THAN_OR_EQUAL
+        static final RenderType LINES_WITH_WIDTH_DEPTH_INVERT = RenderType.create("structurize_lines_with_width_depth_invert",
+            RenderSetup.builder(pipeline("structurize_lines_with_width_depth_invert",
+                PrimitiveTopology.TRIANGLES, BlendFunction.TRANSLUCENT, CompareOp.LESS_THAN_OR_EQUAL, false, true)).createRenderSetup());
+
+        static final RenderType COLORED_TRIANGLES = RenderType.create("structurize_colored_triangles",
+            RenderSetup.builder(pipeline("structurize_colored_triangles",
+                PrimitiveTopology.TRIANGLES, BlendFunction.TRANSLUCENT, CompareOp.GREATER_THAN_OR_EQUAL, true, true)).createRenderSetup());
+
+        static final RenderType COLORED_TRIANGLES_NC_ND = RenderType.create("structurize_colored_triangles_nc_nd",
+            RenderSetup.builder(pipeline("structurize_colored_triangles_nc_nd",
+                PrimitiveTopology.TRIANGLES, BlendFunction.TRANSLUCENT, CompareOp.NEVER_PASS, false, false)).createRenderSetup());
+
+        // TODO(port-26.2): DISABLED — RegisterRenderBuffersEvent is NeoForge-only and 26.2 has no mod owned
+        //  MultiBufferSource at all: geometry goes to SubmitNodeCollector#submitCustomGeometry, which batches
+        //  by render type on its own. Both registerBuffer(...) and finishBuffer(...) lost their reason to exist.
+        /*
+        public static void registerBuffer(final RegisterRenderBuffersEvent event) { ... }
+        public static void finishBuffer(final RenderLevelStageEvent event) { ... }
+        */
     }
 }

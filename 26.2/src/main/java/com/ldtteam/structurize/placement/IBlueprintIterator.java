@@ -3,10 +3,22 @@ package com.ldtteam.structurize.placement;
 import com.ldtteam.structurize.placement.structure.IStructureHandler;
 import com.ldtteam.structurize.util.BlueprintPositionInfo;
 import net.minecraft.core.BlockPos;
-import net.neoforged.neoforge.common.util.TriPredicate;
 
 public interface IBlueprintIterator
 {
+    /**
+     * Replacement for NeoForge's net.neoforged.neoforge.common.util.TriPredicate, which does not exist on Fabric.
+     *
+     * @param <A> first argument type.
+     * @param <B> second argument type.
+     * @param <C> third argument type.
+     */
+    @FunctionalInterface
+    interface TriPredicate<A, B, C>
+    {
+        boolean test(A a, B b, C c);
+    }
+
 
     /**
      * Increment the structure with a certain skipCondition (jump over blocks that fulfill skipCondition).

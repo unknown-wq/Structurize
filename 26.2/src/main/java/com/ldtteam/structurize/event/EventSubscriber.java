@@ -4,15 +4,19 @@ import com.ldtteam.structurize.commands.EntryPoint;
 import com.ldtteam.structurize.management.Manager;
 import com.ldtteam.structurize.util.BlockUtils;
 import com.ldtteam.structurize.util.IOPool;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.server.level.ServerLevel;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
-import net.neoforged.neoforge.event.server.ServerStoppingEvent;
-import net.neoforged.neoforge.event.tick.LevelTickEvent;
-import org.jetbrains.annotations.NotNull;
 
 /**
- * Class with methods for receiving various forge events
+ * Class with methods for receiving various common game events.
+ *
+ * <p>Port note: the {@code @SubscribeEvent} methods became Fabric callbacks installed by
+ * {@link #register()}. {@code RegisterCommandsEvent} → {@code CommandRegistrationCallback} (which also hands
+ * over a {@code CommandBuildContext} we do not need), {@code LevelTickEvent.Pre} →
+ * {@code ServerTickEvents.START_LEVEL_TICK} (server levels only — the client half of the old handler lives in
+ * {@link ClientEventSubscriber}), {@code ServerStoppingEvent} → {@code ServerLifecycleEvents.SERVER_STOPPING}.</p>
  */
 public class EventSubscriber
 {
@@ -27,29 +31,25 @@ public class EventSubscriber
     }
 
     /**
-     * Called when world is about to load.
-     *
-     * @param event event
+     * Installs every common game callback. Called once from the mod initializer.
      */
-    @SubscribeEvent
-    public static void onRegisterCommands(final RegisterCommandsEvent event)
+    public static void register()
     {
-        EntryPoint.register(event.getDispatcher(), event.getCommandSelection());
+        CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, environment) -> EntryPoint.register(dispatcher, environment));
+
+        ServerTickEvents.START_LEVEL_TICK.register(EventSubscriber::onWorldTick);
+
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> IOPool.shutdown());
     }
 
-    @SubscribeEvent
-    public static void onWorldTick(final LevelTickEvent.Pre event)
+    /**
+     * Called before a server level ticks.
+     *
+     * @param serverLevel the ticking level.
+     */
+    private static void onWorldTick(final ServerLevel serverLevel)
     {
         BlockUtils.checkOrInit();
-        if (event.getLevel() instanceof ServerLevel serverLevel)
-        {
-            Manager.onWorldTick(serverLevel);
-        }
-    }
-
-    @SubscribeEvent
-    public static void onServerStopped(@NotNull final ServerStoppingEvent event)
-    {
-        IOPool.shutdown();
+        Manager.onWorldTick(serverLevel);
     }
 }

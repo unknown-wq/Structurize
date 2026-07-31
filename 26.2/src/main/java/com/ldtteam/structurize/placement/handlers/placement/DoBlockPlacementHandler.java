@@ -1,11 +1,6 @@
 package com.ldtteam.structurize.placement.handlers.placement;
 
-import com.ldtteam.domumornamentum.block.IMateriallyTexturedBlock;
-import com.ldtteam.domumornamentum.block.decorative.PillarBlock;
-import com.ldtteam.domumornamentum.client.model.data.MaterialTextureData;
-import com.ldtteam.domumornamentum.entity.block.IMateriallyTexturedBlockEntity;
-import com.ldtteam.domumornamentum.entity.block.MateriallyTexturedBlockEntity;
-import com.ldtteam.domumornamentum.util.BlockUtils;
+import com.ldtteam.structurize.compat.DomumCompat;
 import com.ldtteam.structurize.api.ItemStackUtils;
 import com.ldtteam.structurize.api.Log;
 import com.ldtteam.structurize.placement.IPlacementContext;
@@ -14,7 +9,6 @@ import com.ldtteam.structurize.util.InventoryUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtOps;
 import com.ldtteam.structurize.compat.util.Tuple;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
@@ -35,7 +29,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static com.ldtteam.domumornamentum.util.Constants.BLOCK_ENTITY_TEXTURE_DATA;
 import static com.ldtteam.structurize.api.constants.Constants.UPDATE_FLAG;
 import static com.ldtteam.structurize.placement.handlers.placement.PlacementHandlers.handleTileEntityPlacement;
 
@@ -44,7 +37,7 @@ public class DoBlockPlacementHandler implements IPlacementHandler
     @Override
     public boolean canHandle(@NotNull final Level world, @NotNull final BlockPos pos, @NotNull final BlockState blockState)
     {
-        return blockState.getBlock() instanceof IMateriallyTexturedBlock;
+        return DomumCompat.isMateriallyTexturedBlock(blockState);
     }
 
     @Override
@@ -59,7 +52,7 @@ public class DoBlockPlacementHandler implements IPlacementHandler
         if (blockState.getBlock() instanceof WallBlock
             || blockState.getBlock() instanceof FenceBlock
             || blockState.getBlock() instanceof IronBarsBlock
-            || blockState.getBlock() instanceof PillarBlock)
+            || DomumCompat.isPillarBlock(blockState))
         {
             try
             {
@@ -93,8 +86,8 @@ public class DoBlockPlacementHandler implements IPlacementHandler
             try
             {
                 handleTileEntityPlacement(tileEntityData, world, pos, placementContext.getRotationMirror());
-                placementState.getBlock().setPlacedBy(world, pos, placementState, null, placementState.getBlock().getCloneItemStack(placementState,
-                    new BlockHitResult(new Vec3(0, 0, 0), Direction.NORTH, pos, false), world, pos, null));
+                placementState.getBlock().setPlacedBy(world, pos, placementState, null,
+                    placementState.getCloneItemStack(world, pos, true));
             }
             catch (final Exception ex)
             {
@@ -130,23 +123,8 @@ public class DoBlockPlacementHandler implements IPlacementHandler
     {
         if (blockEntityData != null)
         {
-            if (blockEntityData.getA() instanceof final IMateriallyTexturedBlockEntity mtbe)
-            {
-                final String source;
-                if (blockEntityData.getB().contains(BLOCK_ENTITY_TEXTURE_DATA))
-                {
-                     source = BLOCK_ENTITY_TEXTURE_DATA;
-                }
-                else if (blockEntityData.getB().contains("originalTextureData"))
-                {
-                    source = "originalTextureData";
-                }
-                else
-                {
-                    source = null;
-                }
-                return source != null && mtbe.getTextureData().equals(MaterialTextureData.CODEC.decode(NbtOps.INSTANCE, blockEntityData.getB().get(source)).getOrThrow().getFirst());
-            }
+            // DomumCompat understands both the current and the legacy texture data tag names.
+            return DomumCompat.textureDataMatches(blockEntityData.getA(), blockEntityData.getB());
         }
         return false;
     }
@@ -162,13 +140,13 @@ public class DoBlockPlacementHandler implements IPlacementHandler
         final List<ItemStack> itemList = new ArrayList<>();
         if (tileEntityData != null)
         {
-            BlockPos blockpos = new BlockPos(tileEntityData.getInt("x"), tileEntityData.getInt("y"), tileEntityData.getInt("z"));
+            BlockPos blockpos = new BlockPos(tileEntityData.getIntOr("x", 0), tileEntityData.getIntOr("y", 0), tileEntityData.getIntOr("z", 0));
             final BlockEntity tileEntity = BlockEntity.loadStatic(blockpos, blockState, tileEntityData, world.registryAccess());
             if (tileEntity == null)
             {
                 return Collections.emptyList();
             }
-            itemList.add(BlockUtils.getMaterializedItemStack(tileEntity, world.registryAccess()));
+            itemList.add(DomumCompat.getMaterializedItemStack(tileEntity, world.registryAccess()));
         }
         itemList.removeIf(ItemStackUtils::isEmpty);
         return itemList;

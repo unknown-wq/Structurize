@@ -17,11 +17,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.neoforged.bus.api.EventPriority;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.ModList;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforgespi.language.IModInfo;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.ModContainer;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -61,10 +59,12 @@ public class ClientStructurePackLoader
     {
         final List<Path> modPaths = new ArrayList<>();
         final List<String> modList = new ArrayList<>();
-        for (IModInfo mod : ModList.get().getMods())
+        for (final ModContainer mod : FabricLoader.getInstance().getAllMods())
         {
-            modPaths.add(mod.getOwningFile().getFile().findResource(BLUEPRINT_FOLDER, mod.getModId()));
-            modList.add(mod.getModId());
+            final String modId = mod.getMetadata().getId();
+            // Fabric equivalent of IModFile#findResource: resolve "<blueprints>/<modid>" inside the mod container.
+            mod.findPath(BLUEPRINT_FOLDER + "/" + modId).ifPresent(modPaths::add);
+            modList.add(modId);
         }
 
         if (Minecraft.getInstance() == null)
@@ -82,9 +82,11 @@ public class ClientStructurePackLoader
             {
                 try
                 {
+                    // The last path element is the owning mod id ("<blueprints>/<modid>").
+                    final String owner = modPath.getFileName().toString();
                     try (final Stream<Path> paths = Files.list(modPath))
                     {
-                        paths.forEach(element -> StructurePacks.discoverPackAtPath(element, true, modList, false, modPath.toString().split("/")[1]));
+                        paths.forEach(element -> StructurePacks.discoverPackAtPath(element, true, modList, false, owner));
                     }
                 }
                 catch (IOException e)
@@ -139,12 +141,19 @@ public class ClientStructurePackLoader
         });
     }
 
-    @SubscribeEvent(priority = EventPriority.HIGHEST)
-    public static void onWorldTick(final ClientTickEvent.Pre event)
+    /**
+     * Register the client side lifecycle hooks. Called from the client mod initializer.
+     */
+    public static void register()
+    {
+        ClientTickEvents.START_CLIENT_TICK.register(ClientStructurePackLoader::onWorldTick);
+    }
+
+    public static void onWorldTick(final Minecraft minecraft)
     {
         if (Minecraft.getInstance().level != null && loadingState == ClientLoadingState.FINISHED_LOADING)
         {
-            if (Minecraft.getInstance().isSingleplayer())
+            if (Minecraft.getInstance().hasSingleplayerServer())
             {
                 loadingState = ClientLoadingState.FINISHED_SYNCING;
                 StructurePacks.setFinishedLoading();
@@ -183,7 +192,7 @@ public class ClientStructurePackLoader
             return;
         }
         
-        if (serverStructurePacks.containsKey(Minecraft.getInstance().player.getGameProfile().getName()))
+        if (serverStructurePacks.containsKey(Minecraft.getInstance().player.getGameProfile().name()))
         {
             Minecraft.getInstance().player.sendSystemMessage(Component.translatable("structurize.pack.equaluser.error"));
         }
@@ -303,9 +312,9 @@ public class ClientStructurePackLoader
                 zis.closeEntry();
 
                 final List<String> modList = new ArrayList<>();
-                for (IModInfo mod : ModList.get().getMods())
+                for (final ModContainer mod : FabricLoader.getInstance().getAllMods())
                 {
-                    modList.add(mod.getModId());
+                    modList.add(mod.getMetadata().getId());
                 }
 
                 // now load what we unzipped.
@@ -354,6 +363,6 @@ public class ClientStructurePackLoader
             .resolve(packName.toLowerCase(Locale.US))
             .resolve(SCANS_FOLDER).resolve(fileName), provider));
         RenderingCache.getOrCreateBlueprintPreviewData("blueprint").setPos(null);
-        Minecraft.getInstance().player.displayClientMessage(Component.translatable("Scan successfully saved as %s", fileName), false);
+        Minecraft.getInstance().player.sendSystemMessage(Component.translatable("Scan successfully saved as %s", fileName));
     }
 }

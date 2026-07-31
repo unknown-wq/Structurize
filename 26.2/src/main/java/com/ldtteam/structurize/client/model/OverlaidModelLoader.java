@@ -1,25 +1,30 @@
 package com.ldtteam.structurize.client.model;
 
-import com.google.gson.JsonDeserializationContext;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
-import net.minecraft.resources.ResourceLocation;
-import net.neoforged.neoforge.client.model.geometry.IGeometryLoader;
-import org.jetbrains.annotations.NotNull;
-
 /**
- * Simple loader to create {@link OverlaidGeometry}.
+ * Simple loader to create {@code OverlaidGeometry}.
+ *
+ * <p>Port note (26.2): {@code IGeometryLoader} is NeoForge-only and there is no "model loader keyed by the
+ * JSON {@code loader} field" concept left; Fabric replaces it with
+ * {@code ModelLoadingPlugin.Context#modifyBlockModelOnLoad/AfterBake}. Registration used to live at
+ * {@code event/ClientLifecycleSubscriber.java:76} and is disabled there too.</p>
  */
-public class OverlaidModelLoader implements IGeometryLoader<OverlaidGeometry>
+// TODO(port-26.2): DISABLED — IGeometryLoader removed; JSON key "loader" in
+//  assets/structurize/models/block/blocktagsubstitution.json is now inert (vanilla ignores unknown keys)
+public final class OverlaidModelLoader
 {
-    @NotNull
-    @Override
-    public OverlaidGeometry read(@NotNull JsonObject jsonObject,
-                                 @NotNull JsonDeserializationContext deserializationContext) throws JsonParseException
+    private OverlaidModelLoader()
     {
-        final String parent = jsonObject.get("parent").getAsString();
-        final ResourceLocation parentLocation = ResourceLocation.parse(parent);
-
-        return new OverlaidGeometry(parentLocation);
     }
+
+    /*
+    public class OverlaidModelLoader implements IGeometryLoader<OverlaidGeometry>
+    {
+        @Override
+        public OverlaidGeometry read(JsonObject jsonObject, JsonDeserializationContext deserializationContext) throws JsonParseException
+        {
+            final String parent = jsonObject.get("parent").getAsString();
+            return new OverlaidGeometry(Identifier.parse(parent));
+        }
+    }
+    */
 }

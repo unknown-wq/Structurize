@@ -9,6 +9,11 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.level.storage.TagValueInput;
+import net.minecraft.world.level.storage.TagValueOutput;
+import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -100,9 +105,10 @@ public class ChangeStorage
     public void addEntities(final List<Entity> list, final HolderLookup.Provider provider)
     {
         list.stream().map(entity -> {
-            final CompoundTag tag = new CompoundTag();
-            entity.save(tag);
-            return tag;
+            // 26.2: Entity#save takes a ValueOutput; TagValueOutput#buildResult gives back the raw CompoundTag.
+            final TagValueOutput output = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, provider);
+            entity.save(output);
+            return output.buildResult();
         }).forEach(removedEntities::add);
     }
 
@@ -152,7 +158,7 @@ public class ChangeStorage
             {
                 world.setBlockEntity(entry.getValue().getPreTE());
             }
-            world.markAndNotifyBlock(entry.getKey(), world.getChunkAt(entry.getKey()), entry.getValue().getPreState(), entry.getValue().getPreState(), 2, 512);
+            world.sendBlockUpdated(entry.getKey(), entry.getValue().getPreState(), entry.getValue().getPreState(), Block.UPDATE_CLIENTS);
 
             if (undoStorage != null)
             {
@@ -169,13 +175,14 @@ public class ChangeStorage
 
         for (final CompoundTag data : removedEntities)
         {
-            final Optional<EntityType<?>> type = EntityType.by(data);
+            final ValueInput entityInput = TagValueInput.create(ProblemReporter.DISCARDING, world.registryAccess(), data);
+            final Optional<EntityType<?>> type = EntityType.by(entityInput);
             if (type.isPresent())
             {
-                final Entity entity = type.get().create(world);
+                final Entity entity = type.get().create(world, EntitySpawnReason.LOAD);
                 if (entity != null)
                 {
-                    entity.load(data);
+                    entity.load(entityInput);
                     world.addFreshEntity(entity);
                     if (undoStorage != null)
                     {
@@ -222,7 +229,7 @@ public class ChangeStorage
             {
                 world.setBlockEntity(entry.getValue().getPostTE());
             }
-            world.markAndNotifyBlock(entry.getKey(), world.getChunkAt(entry.getKey()), entry.getValue().getPostState(), entry.getValue().getPostState(), 2, 512);
+            world.sendBlockUpdated(entry.getKey(), entry.getValue().getPostState(), entry.getValue().getPostState(), Block.UPDATE_CLIENTS);
 
             count++;
 

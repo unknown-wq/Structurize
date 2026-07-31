@@ -1,8 +1,8 @@
 package com.ldtteam.structurize.client.fakelevel;
 
-import com.ldtteam.common.fakelevel.FakeLevel;
-import com.ldtteam.common.fakelevel.IFakeLevelLightProvider;
-import com.ldtteam.common.fakelevel.IFakeLevelLightProvider.ConfigBasedLightProvider;
+import com.ldtteam.structurize.compat.common.fakelevel.FakeLevel;
+import com.ldtteam.structurize.compat.common.fakelevel.IFakeLevelLightProvider;
+import com.ldtteam.structurize.compat.common.fakelevel.IFakeLevelLightProvider.ConfigBasedLightProvider;
 import com.ldtteam.structurize.Structurize;
 import com.ldtteam.structurize.blockentities.BlockEntityTagSubstitution;
 import com.ldtteam.structurize.blocks.ModBlocks;

@@ -1,8 +1,7 @@
 package com.ldtteam.structurize.util;
 
 import com.ldtteam.structurize.compat.common.util.BlockToItemHelper;
-import com.ldtteam.domumornamentum.client.model.data.MaterialTextureData;
-import com.ldtteam.domumornamentum.entity.block.MateriallyTexturedBlockEntity;
+import com.ldtteam.structurize.compat.DomumCompat;
 import com.ldtteam.structurize.api.ItemStackUtils;
 import com.ldtteam.structurize.api.RotationMirror;
 import com.ldtteam.structurize.api.constants.Constants;
@@ -53,8 +52,8 @@ import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
-import net.neoforged.neoforge.common.util.FakePlayer;
-import net.neoforged.neoforge.registries.GameData;
+import net.fabricmc.fabric.api.entity.FakePlayer;
+import net.minecraft.world.attribute.EnvironmentAttributes;
 import org.jetbrains.annotations.Nullable;
 
 import java.text.MessageFormat;
@@ -63,7 +62,6 @@ import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-import static com.ldtteam.domumornamentum.util.Constants.BLOCK_ENTITY_TEXTURE_DATA;
 import static com.ldtteam.structurize.tag.ModTags.GOOD_SOLID_FOR_PLACEHOLDER;
 
 /**
@@ -173,8 +171,8 @@ public final class BlockUtils
                     chunk,
                     chunk.getOrCreateNoiseChunk(c -> createNoiseBiome(serverLevel, chunkGenerator, c)),
                     serverLevel.getBiomeManager()::getBiome,
-                    serverLevel.registryAccess().registryOrThrow(Registries.BIOME),
-                    new WorldGenerationContext(chunkGenerator, serverLevel));
+                    new WorldGenerationContext(chunkGenerator, serverLevel),
+                    null);
 
                 final int locX = location.getX();
                 final int locY = location.getY();
@@ -185,7 +183,7 @@ public final class BlockUtils
                 int waterHeight = Integer.MIN_VALUE;
 
                 final MutableBlockPos temp = new MutableBlockPos(locX, locY, locZ);
-                for (int tempY = locY + 1; tempY <= chunk.getMaxBuildHeight() + 1; ++tempY)
+                for (int tempY = locY + 1; tempY <= chunk.getMaxY() + 2; ++tempY)
                 {
                     temp.setY(tempY);
                     final BlockState bs = virtualBlocks == null ? chunk.getBlockState(temp) :
@@ -204,7 +202,7 @@ public final class BlockUtils
                     }
                 }
 
-                for (int tempY = locY - 1; tempY >= chunk.getMinBuildHeight() - 1; --tempY)
+                for (int tempY = locY - 1; tempY >= chunk.getMinY() - 1; --tempY)
                 {
                     temp.setY(tempY);
                     final BlockState bs = virtualBlocks == null ? chunk.getBlockState(temp) :
@@ -219,14 +217,14 @@ public final class BlockUtils
                 stoneDepthBelow = locY - stoneDepthBelow + 1;
 
                 ctx.updateXZ(locX, locZ);
-                ctx.updateY(stoneDepthAbove, stoneDepthBelow, waterHeight, locX, locY, locZ);
+                ctx.updateY(stoneDepthAbove, stoneDepthBelow, waterHeight, locY);
 
                 return generatorSettings.surfaceRule().apply(ctx).tryApply(locX, locY, locZ);
             }
             else if (generator instanceof FlatLevelSource chunkGenerator)
             {
                 final List<BlockState> layers = chunkGenerator.settings().getLayers();
-                final int locY = location.getY() - serverLevel.getMinBuildHeight();
+                final int locY = location.getY() - serverLevel.getMinY();
                 if (locY >= 0 && locY < layers.size())
                 {
                     return layers.get(locY);
@@ -271,7 +269,7 @@ public final class BlockUtils
         }
         else if (block instanceof CropBlock)
         {
-            final ItemStack stack = ((CropBlock) block).getCloneItemStack(null, null, blockState);
+            final ItemStack stack = blockState.getCloneItemStack(null, null, false);
             if (stack != null)
             {
                 return stack.getItem();
@@ -280,7 +278,7 @@ public final class BlockUtils
             return Items.WHEAT_SEEDS;
         }
         // oh no... 
-        else if (block instanceof FarmBlock || block instanceof DirtPathBlock)
+        else if (block instanceof FarmlandBlock || block instanceof DirtPathBlock)
         {
             return getItemFromBlock(Blocks.DIRT);
         }
@@ -305,7 +303,7 @@ public final class BlockUtils
     @Deprecated(forRemoval = true, since = "1.21")
     private static Item getItemFromBlock(final Block block)
     {
-        return GameData.getBlockItemMap().get(block);
+        return Item.BY_BLOCK.get(block);
     }
 
     /**
@@ -348,13 +346,13 @@ public final class BlockUtils
             {
                 return false;
             }
-            else if (worldEntity instanceof final MateriallyTexturedBlockEntity mtbe && tileEntityData.contains(BLOCK_ENTITY_TEXTURE_DATA))
+            else if (DomumCompat.isMateriallyTexturedBlockEntity(worldEntity) && tileEntityData.contains(DomumCompat.TEXTURE_DATA_TAG))
             {
-                return mtbe.getTextureData().equals(MaterialTextureData.CODEC.decode(NbtOps.INSTANCE, tileEntityData.get(BLOCK_ENTITY_TEXTURE_DATA)).getOrThrow().getFirst());
+                return DomumCompat.textureDataMatches(worldEntity, tileEntityData);
             }
             return true;
         }
-        else if (worldEntity instanceof MateriallyTexturedBlockEntity)
+        else if (DomumCompat.isMateriallyTexturedBlockEntity(worldEntity))
         {
             return false;
         }
@@ -418,7 +416,7 @@ public final class BlockUtils
         }
         else if (stack.getItem() instanceof final BucketItem bucket)
         {
-            return bucket.content.defaultFluidState().createLegacyBlock();
+            return bucket.getContent().defaultFluidState().createLegacyBlock();
         }
         else if (stack.getItem() instanceof final BlockItem blockItem)
         {
@@ -437,9 +435,10 @@ public final class BlockUtils
      */
     public static ItemStack getItemStackFromBlockState(final BlockState blockState)
     {
-        if (blockState.getBlock() instanceof final LiquidBlock liquid)
+        if (blockState.getBlock() instanceof LiquidBlock)
         {
-            return new ItemStack(liquid.fluid.getBucket(), 1);
+            // 26.2: LiquidBlock#fluid is protected; the default fluid state carries the same fluid.
+            return new ItemStack(blockState.getFluidState().getType().getBucket(), 1);
         }
         final Item item = getItem(blockState);
         if (item != Items.AIR && item != null)
@@ -546,7 +545,7 @@ public final class BlockUtils
         {
             final Block sourceBlock = blockState.getBlock();
             final BucketItem bucket = (BucketItem) item;
-            final Fluid fluid = bucket.content;
+            final Fluid fluid = bucket.getContent();
 
             // place
             if (sourceBlock instanceof final LiquidBlockContainer liquidContainer)
@@ -606,7 +605,9 @@ public final class BlockUtils
                 }
             }
         }
-        return world == null || !world.dimensionType().ultraWarm() ? Blocks.WATER.defaultBlockState() : Blocks.LAVA.defaultBlockState();
+        // 26.2: DimensionType#ultraWarm is gone, the same fact now lives in the WATER_EVAPORATES environment attribute.
+        return world == null || !world.environmentAttributes().getDimensionValue(EnvironmentAttributes.WATER_EVAPORATES)
+                 ? Blocks.WATER.defaultBlockState() : Blocks.LAVA.defaultBlockState();
     }
 
     /**
@@ -687,8 +688,8 @@ public final class BlockUtils
         private OurWorldGenRegion(final ServerLevel level, final ChunkStep step, final ChunkAccess chunk)
         {
             super(level, null, step, chunk);
-            final int chunkX = chunk.getPos().x;
-            final int chunkZ = chunk.getPos().z;
+            final int chunkX = chunk.getPos().x();
+            final int chunkZ = chunk.getPos().z();
             final int chunkRange = step.accumulatedDependencies().getRadius();
 
             this.level = level;
@@ -753,10 +754,10 @@ public final class BlockUtils
         @Override
         public boolean isOldChunkAround(ChunkPos pos, int radius)
         {
-            final int minX = pos.x - radius;
-            final int maxX = pos.x + radius;
-            final int minZ = pos.z - radius;
-            final int maxZ = pos.z + radius;
+            final int minX = pos.x() - radius;
+            final int maxX = pos.x() + radius;
+            final int minZ = pos.z() - radius;
+            final int maxZ = pos.z() + radius;
 
             return chunks.contains(minX, minZ) &&
                 chunks.contains(minX, maxZ) &&
@@ -815,7 +816,7 @@ public final class BlockUtils
     public static boolean canBlockSurviveWithoutSupport(final Block block)
     {
         // TODO: add tag
-        if (block instanceof FarmBlock || block instanceof DirtPathBlock)
+        if (block instanceof FarmlandBlock || block instanceof DirtPathBlock)
         {
             return true;
         }

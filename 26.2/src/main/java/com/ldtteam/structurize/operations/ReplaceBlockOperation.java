@@ -10,7 +10,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.common.util.FakePlayer;
+import net.fabricmc.fabric.api.entity.FakePlayer;
 
 import java.util.UUID;
 
@@ -55,7 +55,8 @@ public class ReplaceBlockOperation extends AreaOperation
     @Override
     protected void apply(final ServerLevel world, final BlockPos position)
     {
-        final FakePlayer fakePlayer = new FakePlayer(world, new GameProfile(player == null ? UUID.randomUUID() : player.getUUID(), "structurizefakeplayer"));
+        // 26.2/Fabric: FakePlayer's constructor is protected, instances come from the cached factory.
+        final FakePlayer fakePlayer = FakePlayer.get(world, new GameProfile(player == null ? UUID.randomUUID() : player.getUUID(), "structurizefakeplayer"));
         if (percentage < 100 && fakePlayer.getRandom().nextInt(100) > percentage)
         {
             return;

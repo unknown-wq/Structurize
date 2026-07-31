@@ -6,8 +6,7 @@ import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
 import it.unimi.dsi.fastutil.objects.Object2BooleanOpenHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import java.util.UUID;
 
 /**
@@ -20,15 +19,23 @@ public class ServerPreviewDistributor
      */
     private static Object2BooleanMap<UUID> registeredPlayers = new Object2BooleanOpenHashMap<>();
 
-    @SubscribeEvent
-    public static void onLogout(final PlayerEvent.PlayerLoggedOutEvent event)
+    /**
+     * Register the server side lifecycle hooks. Called from the mod initializer.
+     * Named init() because register(ServerPlayer, boolean) already owns the register name.
+     */
+    public static void init()
     {
-        if (event.getEntity().level().isClientSide)
-        {
-            RenderingCache.clear();
-            return;
-        }
-        registeredPlayers.removeBoolean(event.getEntity().getUUID());
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> onLogout(handler.player));
+    }
+
+    /**
+     * NeoForge's PlayerLoggedOutEvent also fired client side and cleared the RenderingCache there.
+     * The Fabric disconnect event is server only; the client side clear now happens in
+     * ClientStructurePackLoader#onWorldTick when the level goes away.
+     */
+    public static void onLogout(final ServerPlayer player)
+    {
+        registeredPlayers.removeBoolean(player.getUUID());
     }
 
     /**
@@ -37,7 +44,7 @@ public class ServerPreviewDistributor
      */
     public static void distribute(final BlueprintPreviewData renderingCache, final ServerPlayer sourcePlayer)
     {
-        for (final ServerPlayer player : sourcePlayer.getServer().getLevel(sourcePlayer.level().dimension()).players())
+        for (final ServerPlayer player : sourcePlayer.level().getServer().getLevel(sourcePlayer.level().dimension()).players())
         {
             if ((player.blockPosition().distSqr(renderingCache.getPos()) < 128 * 128 || renderingCache.getPos().equals(BlockPos.ZERO)) && // within sensible distance
                 !player.getUUID().equals(sourcePlayer.getUUID()) && // dont send to source

@@ -18,8 +18,8 @@ import com.ldtteam.structurize.placement.structure.IStructureHandler;
 import com.ldtteam.structurize.util.IOPool;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.fml.ModList;
-import net.neoforged.neoforgespi.language.IModInfo;
+import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.ModContainer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -142,9 +142,9 @@ public class BlueprintPlacementHandling
                 Files.write(blueprintParentPath.resolve("pack.json"), jsonObject.toString().getBytes());
 
                 final List<String> modList = new ArrayList<>();
-                for (IModInfo mod : ModList.get().getMods())
+                for (final ModContainer mod : FabricLoader.getInstance().getAllMods())
                 {
-                    modList.add(mod.getModId());
+                    modList.add(mod.getMetadata().getId());
                 }
 
                 StructurePacks.discoverPackAtPath(blueprintParentPath, false, modList, true, LOCAL);

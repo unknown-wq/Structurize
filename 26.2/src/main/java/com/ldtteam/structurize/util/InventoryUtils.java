@@ -2,6 +2,7 @@ package com.ldtteam.structurize.util;
 
 import com.ldtteam.structurize.api.ItemStackUtils;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemStackTemplate;
 import com.ldtteam.structurize.compat.itemhandler.IItemHandler;
 import java.util.ArrayList;
 import java.util.List;
@@ -94,7 +95,9 @@ public class InventoryUtils
     public static void consumeStack(final ItemStack tempStack, final IItemHandler handler)
     {
         int count = tempStack.getCount();
-        final ItemStack container = tempStack.getCraftingRemainingItem();
+        // 26.2: ItemStack#getCraftingRemainingItem was a NeoForge extension; vanilla exposes Item#getCraftingRemainder.
+        final ItemStackTemplate remainder = tempStack.getItem().getCraftingRemainder();
+        final ItemStack container = remainder == null ? ItemStack.EMPTY : remainder.create();
 
         for (int i = 0; i < handler.getSlots(); i++)
         {

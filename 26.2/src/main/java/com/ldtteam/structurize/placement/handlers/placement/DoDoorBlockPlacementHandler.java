@@ -1,8 +1,6 @@
 package com.ldtteam.structurize.placement.handlers.placement;
 
-import com.ldtteam.domumornamentum.block.AbstractBlockDoor;
-import com.ldtteam.domumornamentum.block.IMateriallyTexturedBlock;
-import com.ldtteam.domumornamentum.util.BlockUtils;
+import com.ldtteam.structurize.compat.DomumCompat;
 import com.ldtteam.structurize.api.ItemStackUtils;
 import com.ldtteam.structurize.api.Log;
 import com.ldtteam.structurize.placement.IPlacementContext;
@@ -32,7 +30,7 @@ public class DoDoorBlockPlacementHandler implements IPlacementHandler
     @Override
     public boolean canHandle(@NotNull final Level world, @NotNull final BlockPos pos, @NotNull final BlockState blockState)
     {
-        return blockState.getBlock() instanceof IMateriallyTexturedBlock && blockState.getBlock() instanceof AbstractBlockDoor<?>;
+        return DomumCompat.isMateriallyTexturedDoor(blockState);
     }
 
     @Override
@@ -81,14 +79,14 @@ public class DoDoorBlockPlacementHandler implements IPlacementHandler
         final List<ItemStack> itemList = new ArrayList<>();
         if (tileEntityData != null && blockState.getValue(net.minecraft.world.level.block.DoorBlock.HALF).equals(DoubleBlockHalf.LOWER))
         {
-            BlockPos blockpos = new BlockPos(tileEntityData.getInt("x"), tileEntityData.getInt("y"), tileEntityData.getInt("z"));
+            BlockPos blockpos = new BlockPos(tileEntityData.getIntOr("x", 0), tileEntityData.getIntOr("y", 0), tileEntityData.getIntOr("z", 0));
             final BlockEntity tileEntity = BlockEntity.loadStatic(blockpos, blockState, tileEntityData, world.registryAccess());
             if (tileEntity == null)
             {
                 return Collections.emptyList();
             }
 
-            itemList.add(BlockUtils.getMaterializedItemStack(tileEntity, world.registryAccess()));
+            itemList.add(DomumCompat.getMaterializedItemStack(tileEntity, world.registryAccess()));
         }
         itemList.removeIf(ItemStackUtils::isEmpty);
         return itemList;

@@ -1,42 +1,39 @@
 package com.ldtteam.structurize.client.model;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.block.model.ItemOverrides;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.*;
-import net.minecraft.resources.ResourceLocation;
-import net.neoforged.neoforge.client.model.geometry.IGeometryBakingContext;
-import net.neoforged.neoforge.client.model.geometry.IUnbakedGeometry;
-import java.util.function.Function;
-
 /**
- * Simple wrapper to create {@link OverlaidBakedModel}.
+ * Simple wrapper to create {@code OverlaidBakedModel}.
+ *
+ * <p>Port note (26.2): the NeoForge baking stage this hung off
+ * ({@code IUnbakedGeometry#bake(IGeometryBakingContext, ModelBaker, spriteGetter, ModelState, ItemOverrides)})
+ * does not exist in vanilla or Fabric. Vanilla's unbound geometry is
+ * {@code UnbakedGeometry#bake(TextureSlots, ModelBaker, ModelState, ModelDebugName) -> QuadCollection}: it
+ * returns quads, not a model, so it cannot produce a wrapper. Same finding as Domum Ornamentum's
+ * PORT-GAPS entry 10.</p>
  */
-public class OverlaidGeometry implements IUnbakedGeometry<OverlaidGeometry>
+// TODO(port-26.2): DISABLED — IUnbakedGeometry/IGeometryBakingContext/ItemOverrides/BakedModel all removed
+public final class OverlaidGeometry
 {
-    private ResourceLocation overlayModelId;
-
-    public OverlaidGeometry(final ResourceLocation overlayModelId)
+    private OverlaidGeometry()
     {
-        this.overlayModelId = overlayModelId;
     }
 
-    @Override
-    public BakedModel bake(
-      final IGeometryBakingContext context,
-      final ModelBaker baker,
-      final Function<Material, TextureAtlasSprite> spriteGetter,
-      final ModelState modelState,
-      final ItemOverrides overrides)
+    /*
+    public class OverlaidGeometry implements IUnbakedGeometry<OverlaidGeometry>
     {
-        UnbakedModel unbaked = baker.getModel(overlayModelId);
-        BakedModel baked = unbaked.bake(baker, spriteGetter, modelState);
+        private Identifier overlayModelId;
 
-        if (baked == null)
+        public OverlaidGeometry(final Identifier overlayModelId) { this.overlayModelId = overlayModelId; }
+
+        @Override
+        public BakedModel bake(final IGeometryBakingContext context, final ModelBaker baker,
+                               final Function<Material, TextureAtlasSprite> spriteGetter,
+                               final ModelState modelState, final ItemOverrides overrides)
         {
-            baked = Minecraft.getInstance().getModelManager().getMissingModel();
+            UnbakedModel unbaked = baker.getModel(overlayModelId);
+            BakedModel baked = unbaked.bake(baker, spriteGetter, modelState);
+            if (baked == null) { baked = Minecraft.getInstance().getModelManager().getMissingModel(); }
+            return new OverlaidBakedModel(baked);
         }
-
-        return new OverlaidBakedModel(baked);
     }
+    */
 }

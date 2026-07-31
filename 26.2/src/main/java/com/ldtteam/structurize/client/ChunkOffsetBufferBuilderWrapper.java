@@ -5,7 +5,12 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 
 /**
  * Delegating offseted bufferBuilder, delegated method @Overriden in BufferBuilder class to provide fast delegation
+ *
+ * <p>Port note: its only user was the fluid pass of {@link BlueprintRenderer}, which 26.2 cannot reproduce
+ * (see the DISABLED marker there). Kept compiling because the shape is still valid and it is the cheapest way
+ * back once fluids can be re-rendered.</p>
  */
+// TODO(port-26.2): DEGRADED — unused since blueprint fluid rendering was disabled
 public class ChunkOffsetBufferBuilderWrapper implements VertexConsumer
 {
     private BufferBuilder delegate;
@@ -73,6 +78,13 @@ public class ChunkOffsetBufferBuilderWrapper implements VertexConsumer
     public VertexConsumer setLight(int p_350848_)
     {
         return delegate.setLight(p_350848_);
+    }
+
+    // new abstract member in 26.2 (line rendering carries its own width)
+    @Override
+    public VertexConsumer setLineWidth(final float width)
+    {
+        return delegate.setLineWidth(width);
     }
 
     @Override

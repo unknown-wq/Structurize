@@ -7,12 +7,16 @@ import com.ldtteam.structurize.util.BlockEntityInfo;
 import com.ldtteam.structurize.util.BlockInfo;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.level.storage.TagValueInput;
+import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.model.data.ModelData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import org.jetbrains.annotations.Nullable;
@@ -40,7 +44,9 @@ public final class BlueprintUtils
      * @param beLevel The blueprint world.
      * @return A list of tileentities in the blueprint.
      */
-    public static Map<BlockPos, BlockEntity> instantiateTileEntities(final Blueprint blueprint, final Level beLevel, final Map<BlockPos, ModelData> teModelData)
+    // TODO(port-26.2): DEGRADED — NeoForge's ModelData has no Fabric/26.2 equivalent, the per-block-entity model
+    // data map parameter was dropped. Callers (client/BlueprintRenderer) must supply model data themselves.
+    public static Map<BlockPos, BlockEntity> instantiateTileEntities(final Blueprint blueprint, final Level beLevel)
     {
         return blueprint.getBlockInfoAsList()
             .stream()
@@ -51,7 +57,6 @@ public final class BlueprintUtils
                 final BlockEntity be = constructTileEntity(blockInfo, beLevel, blueprint.getRegistryAccess());
                 if (be != null)
                 {
-                    teModelData.put(blockInfo.getPos(), be.getModelData());
                     return new BlockEntityInfo(blockInfo.getPos(), be);
                 }
                 else
@@ -86,7 +91,7 @@ public final class BlueprintUtils
     {
         if (info == null || info.getTileEntityData() == null) return null;
 
-        final String entityId = info.getTileEntityData().getString("id");
+        final String entityId = info.getTileEntityData().getStringOr("id", "");
 
         try
         {
@@ -125,20 +130,22 @@ public final class BlueprintUtils
     {
         if (info == null) return null;
 
-        final String entityId = info.getString("id");
+        final String entityId = info.getStringOr("id", "");
 
         try
         {
             final CompoundTag compound = info.copy();
-            compound.putUUID("UUID", UUID.randomUUID());
-            final Optional<EntityType<?>> type = EntityType.by(compound);
+            compound.store("UUID", UUIDUtil.CODEC, UUID.randomUUID());
+            // 26.2: entity NBT goes through ValueInput/ValueOutput instead of raw CompoundTag.
+            final ValueInput entityInput = TagValueInput.create(ProblemReporter.DISCARDING, entityLevel.registryAccess(), compound);
+            final Optional<EntityType<?>> type = EntityType.by(entityInput);
             if (type.isPresent())
             {    
-                final Entity entity = type.get().create(entityLevel);
+                final Entity entity = type.get().create(entityLevel, EntitySpawnReason.LOAD);
     
                 if (entity != null)
                 {
-                    entity.load(compound);
+                    entity.load(entityInput);
 
                     // prevent ticking rotations
                     entity.setOldPosAndRot();
