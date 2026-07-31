@@ -1,11 +1,19 @@
-package com.ldtteam.structurize.compat.util;
+package com.ldtteam.structurize.api;
 
 /**
- * Replacement for {@code net.minecraft.util.Tuple}, which no longer exists in 26.2
- * (0 hits for {@code class Tuple} in /opt/mc-src).
+ * A plain immutable pair, and the replacement for {@code net.minecraft.util.Tuple}, which no longer exists
+ * in 26.2 (0 hits for {@code class Tuple} in the decompiled sources).
  *
- * <p>Fourteen Structurize files use it as a plain pair. Keeping the {@code getA()} / {@code getB()} shape
- * means the port is a single import-line change per file.</p>
+ * <p><b>This is public, stable API.</b> It lives in {@code com.ldtteam.structurize.api} precisely so that
+ * dependent mods may depend on it: it appears in the signatures of
+ * {@link com.ldtteam.structurize.blockentities.interfaces.IBlueprintDataProviderBE#getSchematicCorners()},
+ * {@link com.ldtteam.structurize.placement.handlers.placement.IPlacementHandler} and several placement
+ * handlers, so there is no way to implement those interfaces without naming this type. It used to sit in
+ * {@code com.ldtteam.structurize.compat.util} during the port; that package means "temporary port shim" and
+ * was never a place to bind against.</p>
+ *
+ * <p>The {@code getA()} / {@code getB()} accessor shape is deliberately identical to the removed vanilla
+ * class and will not change.</p>
  *
  * @param <A> first element type.
  * @param <B> second element type.

@@ -9,7 +9,7 @@ import com.ldtteam.structurize.util.InventoryUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
-import com.ldtteam.structurize.compat.util.Tuple;
+import com.ldtteam.structurize.api.Tuple;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;

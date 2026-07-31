@@ -1114,6 +1114,13 @@ public abstract class WorldRenderMacros
      * {@code LEQUAL_DEPTH_TEST} is {@link CompareOp#GREATER_THAN_OR_EQUAL} (that is what
      * {@code DepthStencilState.DEFAULT} is), and the old {@code COLOR_WRITE} / {@code COLOR_DEPTH_WRITE}
      * shards are now just the {@code writeDepth} flag of {@link DepthStencilState}.</p>
+     *
+     * <p><b>Public API.</b> Both the render types below and the {@link #createPipeline} /
+     * {@link #createRenderType} factories are public on purpose: dependent mods used to subclass our
+     * {@code RenderStateShard} implementations (notably {@code AlwaysDepthTestStateShard} and
+     * {@code NEVER_DEPTH_TEST}), and since shards no longer exist the supported replacement is either
+     * reusing a type from this class or building your own through the factories, which keeps everybody on
+     * the same reversed-depth conventions documented on {@link #createPipeline}.</p>
      */
     public static final class RenderTypes
     {
@@ -1122,7 +1129,47 @@ public abstract class WorldRenderMacros
             throw new IllegalStateException();
         }
 
-        private static RenderPipeline pipeline(final String name,
+        /**
+         * Builds and registers a {@link RenderPipeline} for untextured {@code POSITION_COLOR} geometry — the
+         * 26.2 replacement for the whole {@code RenderType.CompositeState.builder()} shard chain. Every former
+         * shard is a parameter here; nothing else about the pipeline is configurable, because it inherits
+         * {@code RenderPipelines.DEBUG_FILLED_SNIPPET}, which already carries the vanilla
+         * {@code core/position_color} shader pair. No custom {@code .glsl} is needed.
+         *
+         * <p><b>Depth in 26.2 is reversed</b> — near geometry has the <i>larger</i> depth value. The proof is
+         * {@code DepthStencilState.DEFAULT = new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, true)}
+         * (Blaze3D {@code DepthStencilState:11}). Translation table from the old GL depth functions:</p>
+         *
+         * <table border="1">
+         * <caption>depth function mapping</caption>
+         * <tr><th>1.21.1</th><th>26.2</th><th>meaning</th></tr>
+         * <tr><td>{@code LEQUAL_DEPTH_TEST} / {@code GL_LEQUAL}</td>
+         *     <td>{@link CompareOp#GREATER_THAN_OR_EQUAL}</td><td>normal, occluded by the world</td></tr>
+         * <tr><td>{@code GREATER_DEPTH_TEST} / {@code GL_GREATER}</td>
+         *     <td>{@link CompareOp#LESS_THAN_OR_EQUAL}</td><td>inverted, only the hidden part draws</td></tr>
+         * <tr><td>{@code AlwaysDepthTestStateShard} / {@code GL_ALWAYS}</td>
+         *     <td>{@link CompareOp#ALWAYS_PASS}</td><td><b>no depth test</b>, draws on top of everything</td></tr>
+         * <tr><td>{@code NeverDepthTestStateShard} / {@code GL_NEVER}</td>
+         *     <td>{@link CompareOp#NEVER_PASS}</td><td>depth test never passes, geometry is invisible</td></tr>
+         * </table>
+         *
+         * <p>Note that {@code GL_ALWAYS} and {@code GL_NEVER} are unaffected by the reversal — they ignore the
+         * depth value entirely. "Draw without a depth test" is {@link CompareOp#ALWAYS_PASS}, never
+         * {@link CompareOp#NEVER_PASS}.</p>
+         *
+         * @param location   pipeline id in your own namespace, must be unique across all mods, by convention
+         *                   {@code <modid>:pipeline/<name>}.
+         * @param topology   replaces {@code VertexFormat.Mode}; {@link PrimitiveTopology#DEBUG_LINES} for
+         *                   hairline lines, {@link PrimitiveTopology#TRIANGLES} for everything else.
+         * @param blend      replaces {@code setTransparencyState(...)}; {@link BlendFunction#TRANSLUCENT} or
+         *                   {@link BlendFunction#GLINT} are the two the old shards mapped to.
+         * @param depthTest  replaces {@code setDepthTestState(...)}, see the table above.
+         * @param writeDepth replaces {@code setWriteMaskState(...)}: {@code false} was {@code COLOR_WRITE},
+         *                   {@code true} was {@code COLOR_DEPTH_WRITE}.
+         * @param cull       replaces {@code setCullState(CULL / NO_CULL)}.
+         * @return the registered pipeline, ready to be handed to {@link #createRenderType}.
+         */
+        public static RenderPipeline createPipeline(final Identifier location,
             final PrimitiveTopology topology,
             final BlendFunction blend,
             final CompareOp depthTest,
@@ -1130,7 +1177,7 @@ public abstract class WorldRenderMacros
             final boolean cull)
         {
             return RenderPipelines.register(RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
-                .withLocation(Identifier.fromNamespaceAndPath(Constants.MOD_ID, "pipeline/" + name))
+                .withLocation(location)
                 .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
                 .withPrimitiveTopology(topology)
                 .withColorTargetState(new ColorTargetState(blend))
@@ -1139,37 +1186,79 @@ public abstract class WorldRenderMacros
                 .build());
         }
 
-        // TODO(port-26.2): DEGRADED — the old NEVER_DEPTH_TEST shard called RenderSystem.depthFunc(GL_NEVER),
-        //  which can never pass the depth test at all. Mapped literally onto CompareOp.NEVER_PASS; both users
-        //  (GLINT_LINES, COLORED_TRIANGLES_NC_ND) are unreferenced inside Structurize.
-        static final RenderType GLINT_LINES = RenderType.create("structurize_glint_lines",
-            RenderSetup.builder(pipeline("structurize_glint_lines",
-                PrimitiveTopology.DEBUG_LINES, BlendFunction.GLINT, CompareOp.NEVER_PASS, false, false)).createRenderSetup());
+        /**
+         * One-call replacement for the old {@code RenderType.create(name, format, mode, size, ..., compositeState)}:
+         * builds the pipeline through {@link #createPipeline} and wraps it in a {@link RenderType}, which is what
+         * {@code SubmitNodeCollector#submitCustomGeometry} wants.
+         *
+         * <p>There is no "stage" argument any more: where the geometry lands is decided by the type itself —
+         * a type whose blend function is set goes to the translucent custom-geometry pass, everything else to
+         * the solid one.</p>
+         *
+         * @param name       debug name of the render type, prefix it with your mod id to stay unique.
+         * @param location   pipeline id, see {@link #createPipeline}.
+         * @param topology   see {@link #createPipeline}.
+         * @param blend      see {@link #createPipeline}.
+         * @param depthTest  see {@link #createPipeline}, mind the reversed depth buffer.
+         * @param writeDepth see {@link #createPipeline}.
+         * @param cull       see {@link #createPipeline}.
+         * @return a render type usable with {@code submitCustomGeometry}.
+         */
+        public static RenderType createRenderType(final String name,
+            final Identifier location,
+            final PrimitiveTopology topology,
+            final BlendFunction blend,
+            final CompareOp depthTest,
+            final boolean writeDepth,
+            final boolean cull)
+        {
+            return RenderType.create(name,
+                RenderSetup.builder(createPipeline(location, topology, blend, depthTest, writeDepth, cull)).createRenderSetup());
+        }
 
-        static final RenderType GLINT_LINES_WITH_WIDTH = RenderType.create("structurize_glint_lines_with_width",
-            RenderSetup.builder(pipeline("structurize_glint_lines_with_width",
-                PrimitiveTopology.TRIANGLES, BlendFunction.GLINT, CompareOp.ALWAYS_PASS, true, true)).createRenderSetup());
+        /**
+         * Our own types live under {@code structurize:pipeline/<name>} and share the render type name.
+         */
+        private static RenderType ownType(final String name,
+            final PrimitiveTopology topology,
+            final BlendFunction blend,
+            final CompareOp depthTest,
+            final boolean writeDepth,
+            final boolean cull)
+        {
+            return createRenderType(name,
+                Identifier.fromNamespaceAndPath(Constants.MOD_ID, "pipeline/" + name),
+                topology, blend, depthTest, writeDepth, cull);
+        }
 
-        static final RenderType LINES = RenderType.create("structurize_lines",
-            RenderSetup.builder(pipeline("structurize_lines",
-                PrimitiveTopology.DEBUG_LINES, BlendFunction.TRANSLUCENT, CompareOp.GREATER_THAN_OR_EQUAL, false, false)).createRenderSetup());
+        // TODO(port-26.2): NOT A GAP — kept as documentation of the depth mapping. 1.21.1 had two distinct
+        //  shards: NeverDepthTestStateShard called depthFunc(GL_NEVER) (WorldRenderMacros:1244) and
+        //  AlwaysDepthTestStateShard called depthFunc(GL_ALWAYS) (:1258). GLINT_LINES and COLORED_TRIANGLES_NC_ND
+        //  used the NEVER one, so CompareOp.NEVER_PASS here is faithful to the original, not a degradation.
+        //  "Render without a depth test" is the ALWAYS shard, i.e. CompareOp.ALWAYS_PASS — that is what
+        //  GLINT_LINES_WITH_WIDTH uses below. Both variants are reachable publicly: reuse these constants, or
+        //  build your own type with createRenderType(..., CompareOp.ALWAYS_PASS, ...).
+        public static final RenderType GLINT_LINES = ownType("structurize_glint_lines",
+            PrimitiveTopology.DEBUG_LINES, BlendFunction.GLINT, CompareOp.NEVER_PASS, false, false);
 
-        static final RenderType LINES_WITH_WIDTH = RenderType.create("structurize_lines_with_width",
-            RenderSetup.builder(pipeline("structurize_lines_with_width",
-                PrimitiveTopology.TRIANGLES, BlendFunction.TRANSLUCENT, CompareOp.GREATER_THAN_OR_EQUAL, true, true)).createRenderSetup());
+        public static final RenderType GLINT_LINES_WITH_WIDTH = ownType("structurize_glint_lines_with_width",
+            PrimitiveTopology.TRIANGLES, BlendFunction.GLINT, CompareOp.ALWAYS_PASS, true, true);
+
+        public static final RenderType LINES = ownType("structurize_lines",
+            PrimitiveTopology.DEBUG_LINES, BlendFunction.TRANSLUCENT, CompareOp.GREATER_THAN_OR_EQUAL, false, false);
+
+        public static final RenderType LINES_WITH_WIDTH = ownType("structurize_lines_with_width",
+            PrimitiveTopology.TRIANGLES, BlendFunction.TRANSLUCENT, CompareOp.GREATER_THAN_OR_EQUAL, true, true);
 
         // depth inverted: 26.2 depth is reversed, so the old GREATER_DEPTH_TEST becomes LESS_THAN_OR_EQUAL
-        static final RenderType LINES_WITH_WIDTH_DEPTH_INVERT = RenderType.create("structurize_lines_with_width_depth_invert",
-            RenderSetup.builder(pipeline("structurize_lines_with_width_depth_invert",
-                PrimitiveTopology.TRIANGLES, BlendFunction.TRANSLUCENT, CompareOp.LESS_THAN_OR_EQUAL, false, true)).createRenderSetup());
+        public static final RenderType LINES_WITH_WIDTH_DEPTH_INVERT = ownType("structurize_lines_with_width_depth_invert",
+            PrimitiveTopology.TRIANGLES, BlendFunction.TRANSLUCENT, CompareOp.LESS_THAN_OR_EQUAL, false, true);
 
-        static final RenderType COLORED_TRIANGLES = RenderType.create("structurize_colored_triangles",
-            RenderSetup.builder(pipeline("structurize_colored_triangles",
-                PrimitiveTopology.TRIANGLES, BlendFunction.TRANSLUCENT, CompareOp.GREATER_THAN_OR_EQUAL, true, true)).createRenderSetup());
+        public static final RenderType COLORED_TRIANGLES = ownType("structurize_colored_triangles",
+            PrimitiveTopology.TRIANGLES, BlendFunction.TRANSLUCENT, CompareOp.GREATER_THAN_OR_EQUAL, true, true);
 
-        static final RenderType COLORED_TRIANGLES_NC_ND = RenderType.create("structurize_colored_triangles_nc_nd",
-            RenderSetup.builder(pipeline("structurize_colored_triangles_nc_nd",
-                PrimitiveTopology.TRIANGLES, BlendFunction.TRANSLUCENT, CompareOp.NEVER_PASS, false, false)).createRenderSetup());
+        public static final RenderType COLORED_TRIANGLES_NC_ND = ownType("structurize_colored_triangles_nc_nd",
+            PrimitiveTopology.TRIANGLES, BlendFunction.TRANSLUCENT, CompareOp.NEVER_PASS, false, false);
 
         // TODO(port-26.2): DISABLED — RegisterRenderBuffersEvent is NeoForge-only and 26.2 has no mod owned
         //  MultiBufferSource at all: geometry goes to SubmitNodeCollector#submitCustomGeometry, which batches
