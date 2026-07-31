@@ -13,6 +13,8 @@ import com.ldtteam.structurize.network.messages.AddRemoveTagMessage;
 import com.ldtteam.structurize.network.messages.SetTagInTool;
 import com.ldtteam.structurize.util.BlockUtils;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
@@ -131,13 +133,32 @@ public class WindowTagTool extends AbstractWindowSkeleton
         new SetTagInTool(currentTag, Minecraft.getInstance().player.getInventory().findSlotMatchingItem(stack)).sendToServer();
     }
 
+    /**
+     * 26.2: {@code Pane#onKeyTyped(char, int)} is deprecated and never reaches a window any more - {@code BOScreen}
+     * dispatches {@link KeyEvent} / {@link CharacterEvent} into {@code BOWindow#onKeyEvent} and
+     * {@code BOWindow#onCharactedEvent}, which do not fall back to it. Both are overridden so the tag list keeps
+     * following the input field on every keystroke.
+     */
     @Override
-    public boolean onKeyTyped(final char ch, final int key)
+    public boolean onKeyEvent(final KeyEvent event)
     {
-        final boolean returnValue = super.onKeyTyped(ch, key);;
+        final boolean returnValue = super.onKeyEvent(event);
+        refreshCurrentTag();
+        return returnValue;
+    }
+
+    @Override
+    public boolean onCharactedEvent(final CharacterEvent event)
+    {
+        final boolean returnValue = super.onCharactedEvent(event);
+        refreshCurrentTag();
+        return returnValue;
+    }
+
+    private void refreshCurrentTag()
+    {
         updateTagOptionList();
         currentTag = findPaneOfTypeByID(INPUT_FIELD, TextField.class).getText();
-        return returnValue;
     }
 
     /**

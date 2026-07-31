@@ -9,7 +9,7 @@ import com.ldtteam.structurize.network.messages.OperationHistoryMessage;
 import com.ldtteam.structurize.network.messages.UndoRedoMessage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Tuple;
+import com.ldtteam.structurize.compat.util.Tuple;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;

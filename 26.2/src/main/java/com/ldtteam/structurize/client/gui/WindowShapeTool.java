@@ -20,12 +20,14 @@ import com.ldtteam.structurize.storage.StructurePacks;
 import com.ldtteam.structurize.storage.rendering.RenderingCache;
 import com.ldtteam.structurize.storage.rendering.types.BlueprintPreviewData;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.util.Tuple;
+import com.ldtteam.structurize.compat.util.Tuple;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
 import org.jetbrains.annotations.Nullable;
@@ -295,7 +297,7 @@ public class WindowShapeTool extends AbstractBlueprintManipulationWindow
     {
         input.setText(Integer.toString(Math.max(1, value)));
 
-        onKeyTyped('\0', 0);
+        refreshShapeFromInputs();
     }
 
     /**
@@ -467,10 +469,34 @@ public class WindowShapeTool extends AbstractBlueprintManipulationWindow
         disableInputIfNecessary();
     }
 
+    /**
+     * 26.2: {@code Pane#onKeyTyped(char, int)} is deprecated and, at window level, dead - {@code BOScreen}
+     * dispatches {@link KeyEvent} and {@link CharacterEvent} straight into {@code BOWindow#onKeyEvent} /
+     * {@code BOWindow#onCharactedEvent}, neither of which falls back to {@code onKeyTyped}. Both events
+     * therefore forward to {@link #refreshShapeFromInputs()} to keep the "re-read the fields after every
+     * keystroke" behaviour.
+     */
     @Override
-    public boolean onKeyTyped(final char ch, final int key)
+    public boolean onKeyEvent(final KeyEvent event)
     {
-        final boolean result = super.onKeyTyped(ch, key);
+        final boolean result = super.onKeyEvent(event);
+        refreshShapeFromInputs();
+        return result;
+    }
+
+    @Override
+    public boolean onCharactedEvent(final CharacterEvent event)
+    {
+        final boolean result = super.onCharactedEvent(event);
+        refreshShapeFromInputs();
+        return result;
+    }
+
+    /**
+     * Re-reads the size/equation input fields and regenerates the shape when anything changed.
+     */
+    private void refreshShapeFromInputs()
+    {
         final String widthText = inputWidth.getText();
         final String lengthText = inputLength.getText();
         final String heightText = inputHeight.getText();
@@ -509,6 +535,5 @@ public class WindowShapeTool extends AbstractBlueprintManipulationWindow
                 inputHeight.setText(Integer.toString(height));
             }
         }
-        return result;
     }
 }

@@ -1,41 +1,36 @@
 package com.ldtteam.structurize.client.gui;
 
+import com.ldtteam.blockui.BOScreen;
+import com.ldtteam.structurize.compat.util.Tuple;
 import com.ldtteam.structurize.util.ScanToolData;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
-import com.ldtteam.structurize.compat.util.Tuple;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Single seam between Structurize and its parked user interface (contract C9).
+ * Single seam between Structurize and its user interface (contract C9).
  *
- * <p>Every window of the mod is built on {@code com.ldtteam.blockui}, a separate ldtteam library whose 26.2
- * port is not available yet, so the eleven window classes plus {@code AbstractWindowSkeleton} are excluded
- * from the source set in {@code build.gradle}. The nine call sites that used to reach into them go through
- * this class instead; each method keeps its original body next to it in a comment, so phase 4 is: delete the
- * excludes, uncomment the bodies, delete this javadoc paragraph.</p>
+ * <p>Every window of the mod is built on {@code com.ldtteam.blockui}. Phase 4 brought the windows back into the
+ * build, but the nine call sites outside {@code client/gui} keep going through this facade instead of touching
+ * the window classes directly: it is the one place that has to change if the user interface ever has to be cut
+ * again, and it keeps {@code items/**}, {@code network/**}, {@code event/**} and {@code client/ModKeyMappings}
+ * free of BlockUI imports.</p>
  *
  * <p>Everything here is client-only and must never be touched from common code.</p>
  */
 public final class GuiStubs
 {
-    /**
-     * Mirrors {@code WindowUndoRedo.lastOperations} so the network layer has somewhere to put the operation
-     * history while the window itself does not exist. Read back by the window in phase 4.
-     */
-    private static List<Tuple<String, Integer>> lastOperations = new ArrayList<>();
-
     private GuiStubs()
     {
     }
 
     /**
-     * Opens the extended build tool. Was {@code items/ItemBuildTool.java:62}.
+     * Opens the extended build tool. Called from {@code items/ItemBuildTool}.
      *
      * @param pos          anchor position, or null when opened from thin air.
      * @param groundstyle  one of the {@code Constants.GROUNDSTYLE_*} values.
@@ -45,35 +40,32 @@ public final class GuiStubs
         final int groundstyle,
         final HolderLookup.Provider provider)
     {
-        // TODO(port-26.2): DISABLED — BlockUI port pending
-        /* new WindowExtendedBuildTool(pos, groundstyle, null, WindowExtendedBuildTool.BLOCK_BLUEPRINT_REQUIREMENT, provider).open(); */
+        new WindowExtendedBuildTool(pos, groundstyle, null, WindowExtendedBuildTool.BLOCK_BLUEPRINT_REQUIREMENT, provider).open();
     }
 
     /**
-     * Opens the scan tool window. Was {@code items/ItemScanTool.java:112}.
+     * Opens the scan tool window. Called from {@code items/ItemScanTool}.
      *
      * @param data the scan tool data of the held stack.
      */
     public static void openScanToolWindow(final ScanToolData data)
     {
-        // TODO(port-26.2): DISABLED — BlockUI port pending
-        /* new WindowScan(data).open(); */
+        new WindowScan(data).open();
     }
 
     /**
-     * Opens the shape tool window. Was {@code items/ItemShapeTool.java:29} and {@code :42}.
+     * Opens the shape tool window. Called from {@code items/ItemShapeTool}.
      *
      * @param pos      anchor position, or null when opened from thin air.
      * @param provider registry access of the level the tool was used in.
      */
     public static void openShapeToolWindow(final @Nullable BlockPos pos, final HolderLookup.Provider provider)
     {
-        // TODO(port-26.2): DISABLED — BlockUI port pending
-        /* new WindowShapeTool(pos, provider).open(); */
+        new WindowShapeTool(pos, provider).open();
     }
 
     /**
-     * Opens the tag tool window. Was {@code items/ItemTagTool.java:74}.
+     * Opens the tag tool window. Called from {@code items/ItemTagTool}.
      *
      * @param currentTag the tag currently selected in the tool.
      * @param anchorPos  the anchor block the tool is bound to.
@@ -85,64 +77,53 @@ public final class GuiStubs
         final Level level,
         final ItemStack stack)
     {
-        // TODO(port-26.2): DISABLED — BlockUI port pending
-        /* new WindowTagTool(currentTag, anchorPos, level, stack).open(); */
+        new WindowTagTool(currentTag, anchorPos, level, stack).open();
     }
 
     /**
      * Stores the undo/redo history received from the server.
-     * Was {@code network/messages/OperationHistoryMessage.java:54}.
+     * Called from {@code network/messages/OperationHistoryMessage}.
      *
      * @param operations operation name and id pairs, newest first.
      */
     public static void setLastOperations(final List<Tuple<String, Integer>> operations)
     {
-        // TODO(port-26.2): DISABLED — BlockUI port pending
-        /* WindowUndoRedo.lastOperations = operations; */
-        lastOperations = operations;
+        WindowUndoRedo.lastOperations = operations;
     }
 
     /**
-     * @return the last operation history received from the server; empty while the window is parked.
+     * @return the last operation history received from the server.
      */
     public static List<Tuple<String, Integer>> getLastOperations()
     {
-        return lastOperations;
+        return WindowUndoRedo.lastOperations;
     }
 
     /**
      * @return true when the extended build tool window is the screen currently on top.
-     *         Was {@code event/ClientEventSubscriber.java:39}.
+     *         Called from {@code event/ClientEventSubscriber}.
      */
     public static boolean isBuildToolScreenOpen()
     {
-        // TODO(port-26.2): DISABLED — BlockUI port pending
-        /* return Minecraft.getInstance().gui.screen() instanceof BOScreen screen
-                 && screen.getWindow() instanceof WindowExtendedBuildTool; */
-        return false;
+        return currentWindow() instanceof WindowExtendedBuildTool;
     }
 
     /**
      * Drops the build tool's client side caches on disconnect.
-     * Was {@code event/ClientEventSubscriber.java:171}.
+     * Called from {@code event/ClientEventSubscriber}.
      */
     public static void clearBuildToolStaticData()
     {
-        // TODO(port-26.2): DISABLED — BlockUI port pending
-        /* WindowExtendedBuildTool.clearStaticData(); */
-        lastOperations = new ArrayList<>();
+        WindowExtendedBuildTool.clearStaticData();
     }
 
     /**
      * @return true when a blueprint manipulation window is the screen currently on top; drives the
-     *         keybinding conflict context. Was {@code client/ModKeyMappings.java:25}.
+     *         keybinding conflict context. Called from {@code client/ModKeyMappings}.
      */
     public static boolean isBlueprintManipulationScreenOpen()
     {
-        // TODO(port-26.2): DISABLED — BlockUI port pending
-        /* return Minecraft.getInstance().gui.screen() instanceof BOScreen screen
-                 && screen.getWindow() instanceof AbstractBlueprintManipulationWindow; */
-        return false;
+        return currentWindow() instanceof AbstractBlueprintManipulationWindow;
     }
 
     /**
@@ -150,8 +131,17 @@ public final class GuiStubs
      */
     public static boolean isAnyBlockUiScreenOpen()
     {
-        // TODO(port-26.2): DISABLED — BlockUI port pending
-        /* return Minecraft.getInstance().gui.screen() instanceof BOScreen; */
-        return false;
+        return Minecraft.getInstance().gui.screen() instanceof BOScreen;
+    }
+
+    /**
+     * 26.2: {@code Minecraft#screen} is no longer a public field, the current screen comes from
+     * {@code Minecraft#gui}.
+     *
+     * @return the BlockUI window currently on screen, or null when the top screen is not a BlockUI one.
+     */
+    private static @Nullable Object currentWindow()
+    {
+        return Minecraft.getInstance().gui.screen() instanceof final BOScreen screen ? screen.getWindow() : null;
     }
 }

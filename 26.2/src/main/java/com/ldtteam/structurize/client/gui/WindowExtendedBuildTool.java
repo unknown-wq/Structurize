@@ -22,6 +22,8 @@ import com.ldtteam.structurize.storage.StructurePacks;
 import com.ldtteam.structurize.storage.rendering.RenderingCache;
 import com.ldtteam.structurize.storage.rendering.types.BlueprintPreviewData;
 import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.TextColor;
+import net.minecraft.util.ARGB;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -734,7 +736,10 @@ public final class WindowExtendedBuildTool extends AbstractBlueprintManipulation
                 final ButtonImage button = rowPane.findPaneOfTypeByID("alternative", ButtonImage.class);
                 rowPane.findPaneOfTypeByID("id", Text.class).setText(Component.literal(depth + ":" + list.get(index).getKey()));
                 button.setText(Component.literal(list.get(index).getKey()));
-                button.setTextColor(ChatFormatting.BLACK.getColor());
+                // 26.2: ChatFormatting no longer carries a colour; TextColor is the replacement table.
+                // The alpha byte matters now - Font's old "alpha 0 means opaque" fixup is gone and
+                // GuiGraphicsExtractor#text drops any text whose alpha is 0, so black must be made opaque.
+                button.setTextColor(ARGB.opaque(TextColor.BLACK.getValue()));
             }
         });
     }
@@ -793,7 +798,7 @@ public final class WindowExtendedBuildTool extends AbstractBlueprintManipulation
                     rowPane.findPaneOfTypeByID("id", Text.class).setText(Component.literal(buttonId));
                     button.setImage(Constants.resLocStruct("textures/gui/buildtool/button_medium.png"));
                     button.setText(Component.literal("Level: " + (index + (hasAlternatives ? 0 : 1))));
-                    button.setTextColor(ChatFormatting.BLACK.getColor());
+                    button.setTextColor(ARGB.opaque(TextColor.BLACK.getValue()));
                 }
             }
         });
@@ -935,7 +940,7 @@ public final class WindowExtendedBuildTool extends AbstractBlueprintManipulation
         final Component desc = Component.literal(descString);
         img.setText(desc);
         img.setVisible(true);
-        img.setTextColor(ChatFormatting.BLACK.getColor());
+        img.setTextColor(ARGB.opaque(TextColor.BLACK.getValue()));
     }
 
     @Override

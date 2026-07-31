@@ -31,10 +31,13 @@ public class WindowBlockGetterContents extends BOWindow
 {
     public WindowBlockGetterContents(final Blueprint blueprint, final Level realLevel, final Collection<Entity> boundedEntities)
     {
+        // 26.2: LevelHeightAccessor#getMinBuildHeight/getMaxBuildHeight became getMinY/getMaxY, and getMaxY is
+        // inclusive where getMaxBuildHeight was exclusive. IFakeLevelBlockGetter#getMaxX/getMaxZ are inclusive
+        // as well (min + size - 1), so the "- 1" the exclusive bounds needed is gone from all three axes.
         this(blueprint,
             realLevel,
-            new BlockPos(blueprint.getMinX(), blueprint.getMinBuildHeight(), blueprint.getMinZ()),
-            new BlockPos(blueprint.getMaxX() - 1, blueprint.getMaxBuildHeight() - 1, blueprint.getMaxZ() - 1),
+            new BlockPos(blueprint.getMinX(), blueprint.getMinY(), blueprint.getMinZ()),
+            new BlockPos(blueprint.getMaxX(), blueprint.getMaxY(), blueprint.getMaxZ()),
             boundedEntities);
     }
 

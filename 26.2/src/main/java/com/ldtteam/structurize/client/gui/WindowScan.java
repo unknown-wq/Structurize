@@ -3,6 +3,7 @@ package com.ldtteam.structurize.client.gui;
 import com.ldtteam.blockui.Color;
 import com.ldtteam.blockui.Pane;
 import com.ldtteam.blockui.controls.*;
+import com.ldtteam.blockui.views.BOWindow;
 import com.ldtteam.blockui.views.ScrollingList;
 import com.ldtteam.blockui.views.View;
 import com.ldtteam.structurize.api.ItemStorage;
@@ -21,11 +22,14 @@ import com.ldtteam.structurize.util.ScanToolData;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
@@ -207,7 +211,7 @@ public class WindowScan extends AbstractWindowSkeleton
         }
         catch (Exception e)
         {
-            Minecraft.getInstance().player.displayClientMessage(Component.literal("Invalid Number"), false);
+            Minecraft.getInstance().player.sendSystemMessage(Component.literal("Invalid Number"));
         }
         close();
     }
@@ -360,9 +364,20 @@ public class WindowScan extends AbstractWindowSkeleton
         close();
     }
 
+    /**
+     * 26.2: typed characters no longer arrive through {@code onUnhandledKeyTyped(char, int)} - key presses and
+     * character input are two separate events. The digit shortcut therefore moved onto the character event,
+     * which {@link BOWindow#onCharactedEvent} offers to the focused pane first.
+     */
     @Override
-    public boolean onUnhandledKeyTyped(final int ch, final int key)
+    public boolean onCharactedEvent(final CharacterEvent event)
     {
+        if (super.onCharactedEvent(event))
+        {
+            return true;
+        }
+
+        final int ch = event.codepoint();
         if (ch >= '0' && ch <= '9')
         {
             updateBounds();
@@ -372,7 +387,7 @@ public class WindowScan extends AbstractWindowSkeleton
             return true;
         }
 
-        return super.onUnhandledKeyTyped(ch, key);
+        return false;
     }
 
     private void loadSlot()
@@ -424,7 +439,7 @@ public class WindowScan extends AbstractWindowSkeleton
         }
         catch (final NumberFormatException e)
         {
-            Minecraft.getInstance().player.displayClientMessage(Component.literal("Invalid Number"), false);
+            Minecraft.getInstance().player.sendSystemMessage(Component.literal("Invalid Number"));
             return;
         }
 
@@ -460,7 +475,7 @@ public class WindowScan extends AbstractWindowSkeleton
             // LEASH_KNOT, while not directly serializable, still serializes as part of the mob
             // and drops a lead, so we should alert builders that it exists in the scan
             if (!entities.containsKey(entity.getName().getString())
-                && (entity.getType().canSerialize() || entity.getType().equals(EntityType.LEASH_KNOT))
+                && (entity.getType().canSerialize() || entity.getType().equals(EntityTypes.LEASH_KNOT))
                 && (filter.isEmpty() || (entity.getName().getString().toLowerCase(Locale.US).contains(filter.toLowerCase(Locale.US))
                 || (entity.toString().toLowerCase(Locale.US).contains(filter.toLowerCase(Locale.US))))))
             {
@@ -551,7 +566,7 @@ public class WindowScan extends AbstractWindowSkeleton
         }
 
         if (filter.isEmpty()
-            || res.getDescriptionId().toLowerCase(Locale.US).contains(filter.toLowerCase(Locale.US))
+            || res.getItem().getDescriptionId().toLowerCase(Locale.US).contains(filter.toLowerCase(Locale.US))
             || res.getHoverName().getString().toLowerCase(Locale.US).contains(filter.toLowerCase(Locale.US)))
         {
             final ItemStorage stackToStore = new ItemStorage(res, 1, true, false);
@@ -595,16 +610,21 @@ public class WindowScan extends AbstractWindowSkeleton
             public void updateElement(final int index, final Pane rowPane)
             {
                 final EntityType<?> entity = tempEntities.get(index);
-                ItemStack entityIcon = entity.create(Minecraft.getInstance().level).getPickResult();
-                if (entity == EntityType.GLOW_ITEM_FRAME)
+                // 26.2: EntityType#create takes a spawn reason and may return null; Entity#getPickResult is
+                // nullable too (Entity#getPickedResult(HitResult) was a NeoForge extension). The vanilla
+                // entity type constants moved from EntityType to EntityTypes.
+                final Entity sample = entity.create(Minecraft.getInstance().level, EntitySpawnReason.LOAD);
+                final ItemStack picked = sample == null ? null : sample.getPickResult();
+                ItemStack entityIcon = picked == null ? ItemStack.EMPTY : picked;
+                if (entity == EntityTypes.GLOW_ITEM_FRAME)
                 {
                     entityIcon = new ItemStack(Items.GLOW_ITEM_FRAME);
                 }
-                else if (entity == EntityType.ITEM_FRAME)
+                else if (entity == EntityTypes.ITEM_FRAME)
                 {
                     entityIcon = new ItemStack(Items.ITEM_FRAME);
                 }
-                else if (entity == EntityType.MINECART)
+                else if (entity == EntityTypes.MINECART)
                 {
                     entityIcon = new ItemStack(Items.MINECART);
                 }

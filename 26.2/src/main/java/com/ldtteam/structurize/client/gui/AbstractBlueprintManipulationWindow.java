@@ -21,18 +21,19 @@ import com.ldtteam.structurize.storage.ISurvivalBlueprintHandler;
 import com.ldtteam.structurize.storage.SurvivalBlueprintHandlers;
 import com.ldtteam.structurize.storage.rendering.RenderingCache;
 import com.ldtteam.structurize.storage.rendering.types.BlueprintPreviewData;
-import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.TextColor;
+import net.minecraft.util.ARGB;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
-import net.minecraft.util.Tuple;
+import com.ldtteam.structurize.compat.util.Tuple;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
-import net.neoforged.neoforge.common.ModConfigSpec.ConfigValue;
-import net.neoforged.neoforge.common.ModConfigSpec.DoubleValue;
-import net.neoforged.neoforge.common.ModConfigSpec.ValueSpec;
+import com.ldtteam.common.config.ConfigValue;
+import com.ldtteam.common.config.ConfigValue.DoubleValue;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -133,7 +134,7 @@ public abstract class AbstractBlueprintManipulationWindow extends AbstractWindow
         if (RenderingCache.getOrCreateBlueprintPreviewData(bluePrintId).getPos() == null)
         {
             Utils.playErrorSound(Minecraft.getInstance().player);
-            Minecraft.getInstance().player.displayClientMessage(Component.translatable("structurize.gui.missing.pos"), false);
+            Minecraft.getInstance().player.sendSystemMessage(Component.translatable("structurize.gui.missing.pos"));
             cancelClicked();
         }
     }
@@ -159,7 +160,7 @@ public abstract class AbstractBlueprintManipulationWindow extends AbstractWindow
                     Utils.playErrorSound(Minecraft.getInstance().player);
                     if (SurvivalBlueprintHandlers.getHandlers().isEmpty())
                     {
-                        Minecraft.getInstance().player.displayClientMessage(Component.translatable("structurize.gui.no.survival.handler"), false);
+                        Minecraft.getInstance().player.sendSystemMessage(Component.translatable("structurize.gui.no.survival.handler"));
                     }
                     return;
                 }
@@ -248,7 +249,10 @@ public abstract class AbstractBlueprintManipulationWindow extends AbstractWindow
             {
                 final ButtonImage buttonImage = rowPane.findPaneOfTypeByID("type", ButtonImage.class);
                 buttonImage.setText(categories.get(index).getA());
-                buttonImage.setTextColor(ChatFormatting.BLACK.getColor());
+                // 26.2: ChatFormatting no longer carries a colour; TextColor is the replacement table.
+                // The alpha byte matters now - Font's old "alpha 0 means opaque" fixup is gone and
+                // GuiGraphicsExtractor#text drops any text whose alpha is 0, so black must be made opaque.
+                buttonImage.setTextColor(ARGB.opaque(TextColor.BLACK.getValue()));
                 buttonImage.setHandler(button -> categories.get(index).getB().run());
             }
         });
@@ -265,56 +269,64 @@ public abstract class AbstractBlueprintManipulationWindow extends AbstractWindow
         findPaneByID(BUTTON_CONTENTS).setVisible(RenderingCache.getOrCreateBlueprintPreviewData(bluePrintId).getBlueprint() != null);
     }
 
+    /**
+     * 26.2: key presses and typed characters are separate events now, so the old {@code (char, keycode)}
+     * signature became {@link KeyEvent} and the {@code ch != 0} guard (which used to filter out character
+     * input) is gone. {@code KeyMapping#isActiveAndMatches} was NeoForge only; the vanilla
+     * {@code KeyMapping#matches(KeyEvent)} replaces it, and the removed {@code BLUEPRINT_WINDOW} key conflict
+     * context is implied here - this handler only runs while such a window is open.
+     */
     @Override
-    public boolean onUnhandledKeyTyped(final int ch, final int key)
+    public boolean onUnhandledKeyTyped(final KeyEvent event)
     {
-        if (ch != 0 || getFocus() != null) return super.onUnhandledKeyTyped(ch, key);
+        if (getFocus() != null || !ModKeyMappings.isBlueprintWindowActive())
+        {
+            return super.onUnhandledKeyTyped(event);
+        }
 
-        final InputConstants.Key inputKey = InputConstants.Type.KEYSYM.getOrCreate(key);
-
-        if (ModKeyMappings.MOVE_FORWARD.get().isActiveAndMatches(inputKey))
+        if (ModKeyMappings.MOVE_FORWARD.get().matches(event))
         {
             moveForwardClicked();
         }
-        else if (ModKeyMappings.MOVE_BACK.get().isActiveAndMatches(inputKey))
+        else if (ModKeyMappings.MOVE_BACK.get().matches(event))
         {
             moveBackClicked();
         }
-        else if (ModKeyMappings.MOVE_LEFT.get().isActiveAndMatches(inputKey))
+        else if (ModKeyMappings.MOVE_LEFT.get().matches(event))
         {
             moveLeftClicked();
         }
-        else if (ModKeyMappings.MOVE_RIGHT.get().isActiveAndMatches(inputKey))
+        else if (ModKeyMappings.MOVE_RIGHT.get().matches(event))
         {
             moveRightClicked();
         }
-        else if (ModKeyMappings.MOVE_UP.get().isActiveAndMatches(inputKey))
+        else if (ModKeyMappings.MOVE_UP.get().matches(event))
         {
             moveUpClicked();
         }
-        else if (ModKeyMappings.MOVE_DOWN.get().isActiveAndMatches(inputKey))
+        else if (ModKeyMappings.MOVE_DOWN.get().matches(event))
         {
             moveDownClicked();
         }
-        else if (ModKeyMappings.ROTATE_CW.get().isActiveAndMatches(inputKey))
+        else if (ModKeyMappings.ROTATE_CW.get().matches(event))
         {
             rotateRightClicked();
         }
-        else if (ModKeyMappings.ROTATE_CCW.get().isActiveAndMatches(inputKey))
+        else if (ModKeyMappings.ROTATE_CCW.get().matches(event))
         {
             rotateLeftClicked();
         }
-        else if (ModKeyMappings.MIRROR.get().isActiveAndMatches(inputKey))
+        else if (ModKeyMappings.MIRROR.get().matches(event))
         {
             mirrorClicked();
         }
-        else if (ModKeyMappings.PLACE.get().isActiveAndMatches(inputKey))
+        else if (ModKeyMappings.PLACE.get().matches(event))
         {
             confirmClicked();
         }
         else
         {
-            return super.onUnhandledKeyTyped(ch, key);
+            return super.onUnhandledKeyTyped(event);
         }
         return true;
     }
@@ -341,10 +353,10 @@ public abstract class AbstractBlueprintManipulationWindow extends AbstractWindow
 
         settingsList.setDataProvider(settings::size, (index, rowPane) -> {
             final ConfigValue<?> setting = settings.get(index);
-            final ValueSpec settingSpec = setting.getSpec();
+            // 26.2: com.ldtteam.common.config.ConfigValue carries the metadata itself, ModConfigSpec.ValueSpec is gone.
             final Text label = rowPane.findPaneOfTypeByID("label", Text.class);
 
-            final String nameTKey = settingSpec.getTranslationKey();
+            final String nameTKey = setting.getTranslationKey();
 
             if (label.getText() != null && label.getText().getContents() instanceof final TranslatableContents tkey && tkey.getKey().equals(nameTKey))
             {
@@ -353,7 +365,11 @@ public abstract class AbstractBlueprintManipulationWindow extends AbstractWindow
             }
 
             label.setText(Component.translatable(nameTKey));
-            PaneBuilders.singleLineTooltip(Component.literal(settingSpec.getComment()), rowPane);
+            final String comment = setting.getComment();
+            if (comment != null)
+            {
+                PaneBuilders.singleLineTooltip(Component.literal(comment), rowPane);
+            }
 
             final ButtonImage buttonImage = rowPane.findPaneOfTypeByID("switch", ButtonImage.class);
             final TextFieldVanilla inputField = rowPane.findPaneOfTypeByID("set_input", TextFieldVanilla.class);
@@ -391,7 +407,12 @@ public abstract class AbstractBlueprintManipulationWindow extends AbstractWindow
                     final boolean testResult;
                     try
                     {
-                        testResult = settingSpec.test(newValue);
+                        // TODO(port-26.2): DEGRADED — ModConfigSpec.ValueSpec#test is gone with NeoForge's config
+                        // system and com.ldtteam.common.config.ConfigValue exposes no range. Only parseability is
+                        // checked here; the IntValue/DoubleValue setters clamp out-of-range input themselves.
+                        /* testResult = settingSpec.test(newValue); */
+                        newValue.doubleValue();
+                        testResult = true;
                     }
                     catch (final NumberFormatException e)
                     {

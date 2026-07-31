@@ -20,9 +20,12 @@ public class ModKeyMappings
         KeyMapping.Category.register(Identifier.fromNamespaceAndPath(Constants.MOD_ID, "general"));
 
     // TODO(port-26.2): DEGRADED — IKeyConflictContext/KeyConflictContext/KeyModifier are NeoForge-only.
-    //  26.2 KeyMapping has no conflict context and no modifier; the blueprint window mappings are therefore
-    //  plain global mappings. The original context test is preserved as isBlueprintWindowActive() below and
-    //  must be asked explicitly by whoever reads the mapping.
+    //  26.2 KeyMapping has no conflict context, so the blueprint window mappings are plain global mappings.
+    //  Phase 4 restored the behavioural half of the context: isBlueprintWindowActive() below is a real test
+    //  again and AbstractBlueprintManipulationWindow#onUnhandledKeyTyped gates on it, so the mappings only
+    //  ever act while a blueprint window is on top. What cannot be restored is the *declarative* half: the
+    //  vanilla controls screen has no notion of a context and will still report these mappings as conflicting
+    //  with the vanilla bindings that share their keys.
     /*
     public static final IKeyConflictContext BLUEPRINT_WINDOW = new IKeyConflictContext()
     {
@@ -46,7 +49,10 @@ public class ModKeyMappings
 
     /**
      * Replacement for the removed {@code BLUEPRINT_WINDOW} key conflict context: true while a blueprint
-     * manipulation window is on top. Callers of the blueprint mappings have to gate on this themselves.
+     * manipulation window is on top. Callers of the blueprint mappings have to gate on this themselves;
+     * {@code AbstractBlueprintManipulationWindow#onUnhandledKeyTyped} is the only one in this mod.
+     *
+     * @return true while the top screen is a blueprint manipulation window.
      */
     public static boolean isBlueprintWindowActive()
     {

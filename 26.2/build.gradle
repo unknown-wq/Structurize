@@ -25,21 +25,6 @@ loom {
 	accessWidenerPath = file("src/main/resources/structurize.accesswidener")
 }
 
-// --- C9: BlockUI is parked -------------------------------------------------
-// Structurize builds every window on com.ldtteam.blockui, a separate ldtteam library whose 26.2
-// port is not available yet. The 13 files below are the only ones that touch it; they stay in the
-// tree untouched and come back in phase 4 by deleting this block.
-// client/gui/util/ItemPositionsStorage.java is deliberately NOT excluded: it has no BlockUI
-// reference and network/ + operations/ need it.
-// client/gui/GuiStubs.java is the facade that replaces them and must stay in the build, so the
-// windows are listed by their two prefixes instead of the whole package.
-sourceSets.main.java {
-	exclude "**/client/gui/Window*.java"
-	exclude "**/client/gui/Abstract*.java"
-	exclude "**/client/gui/util/InputFilters.java"
-	exclude "**/client/gui/util/ItemUtil.java"
-}
-
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	// Minecraft 26.1+ is unobfuscated and Yarn is discontinued: no mappings line is needed.
