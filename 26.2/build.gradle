@@ -47,6 +47,10 @@ dependencies {
 
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
+	// src/test carries a single JUnit 4 test (RotationMirrorTest); the upstream 1.21.1 checkout
+	// got junit from the NeoForge parent build script, which is gone.
+	testImplementation "junit:junit:4.13.2"
+
 	// Domum Ornamentum, built from /workspace/domum-ornamentum/26.2.
 	// Loom 1.17 on 26.2 does not create the mod* configurations (nothing to remap on an
 	// unobfuscated game), so this is a plain implementation dependency; Fabric Loader still
