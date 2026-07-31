@@ -23,6 +23,8 @@ export JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64
 
 `./gradlew` в этом окружении не работает: прокси отдаёт 403 на ассеты GitHub-релизов.
 
+Порядок портирования: **BlockUI и Domum Ornamentum (листья) → Structurize → MineColonies**.
+
 Structurize — библиотека, на которой стоит MineColonies: она читает и размещает
 `.blueprint`-постройки (в форке MineColonies их 9374 штуки). По §2 плана порта
 библиотека портируется **раньше** мода, который её потребляет.
@@ -52,20 +54,24 @@ Structurize — библиотека, на которой стоит MineColonie
 
 | Библиотека | Файлов | Импортов | Что реально используется |
 |---|---|---:|---|
-| `com.ldtteam.common` | 36 | 65 | **49 из 65 — сетевой слой** (`PlayMessageType`, `AbstractServerPlayMessage`, `AbstractClientPlayMessage`). Остальное мелочь: `BlockToItemHelper`, `LanguageHandler`, `AbstractConfiguration`, `fakelevel/SingleBlockFakeLevel` |
+| `com.ldtteam.common` | 36 | 65 | **это часть BlockUI**, а не отдельная библиотека — см. ниже. 49 из 65 — сетевой слой (`PlayMessageType`, `AbstractServerPlayMessage`, `AbstractClientPlayMessage`), остальное мелочь: `BlockToItemHelper`, `LanguageHandler`, `AbstractConfiguration`, `fakelevel/SingleBlockFakeLevel` |
 | `com.ldtteam.blockui` | 14 | 64 | GUI: `BOWindow`, `Pane`, `View`, `ScrollingList`, `Button`, `TextField`, `Text`, `ItemIcon` |
 | `com.ldtteam.domumornamentum` | 4 | 15 | Интеграция с их декоративными блоками: `IMateriallyTexturedBlock`, `MaterialTextureData`, `BlockUtils` |
 
 Что это значит для порта:
 
-- **`com.ldtteam.common` почти не проблема.** Три четверти — это их обёртка над
-  NeoForge-пакетами, а сетевой слой при переходе на Fabric переписывается в любом
-  случае (`CustomPacketPayload` + `StreamCodec` + `PayloadTypeRegistry`, контракт C3).
-  Оставшиеся ~8 файлов утилит — их собственный код под GPL-3.0, копируется внутрь.
-- **BlockUI — 14 файлов, и это единственное настоящее решение.** Либо портировать
-  BlockUI отдельно (свой репозиторий `ldtteam/BlockUI`, тогда он же закроет 146 файлов
-  GUI в MineColonies), либо переписать эти 14 экранов на ванильный `Screen`.
-  Для самого Structurize второе дешевле; для связки с MineColonies — первое.
+- **`com.ldtteam.common` — это BlockUI** (уточнено при разборе форка `unknown-wq/BlockUI`).
+  Отдельной библиотеки с таким именем не существует: пакет физически лежит в исходниках
+  BlockUI, `src/main/java/com/ldtteam/common/**` — 28 файлов `network/`, `fakelevel/`,
+  `codec/`, `config/`, `language/`, `util/`. Искать и копировать нечего: эти 36 файлов
+  закрываются тем же решением, что и следующая строка. Сетевая часть (49 из 65 импортов)
+  при переходе на Fabric всё равно переписывается (контракт C3).
+- **BlockUI — единственное настоящее решение здесь, и оно уже сдвинулось.** Форк
+  `unknown-wq/BlockUI` разложен: апстримная ветка `port/26` — это **MC 26.1.2, Java 25**,
+  109 файлов, ванильная ось пройдена целиком, внешних зависимостей нет вообще.
+  Портировать его первым дешевле, чем переписывать 14 экранов Structurize на ванильный
+  `Screen`, — тем более что он же закрывает 146 файлов GUI и 209 импортов
+  `ldtteam.common` в MineColonies.
 - **Domum Ornamentum — 4 файла, режется по §10.** В `neoforge.mods.toml` он объявлен
   обязательным, но по коду это опциональная интеграция с их блоками; без неё
   Structurize работает.
