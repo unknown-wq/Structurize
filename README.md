@@ -1,124 +1,241 @@
-# Structurize → Fabric / Minecraft 26.2
+<h1 align="center">
+  <img src="26.2/src/main/resources/structurize.png" alt="Structurize logo" width="140">
+  <br>
+  Structurize — Fabric port for Minecraft 26.2
+</h1>
 
-Рабочий репозиторий порта. В **`1.21.1/`** лежит исходный код из ветки апстрима
-`ldtteam/Structurize@version/1.21` — **только код и ресурсы, для чтения, не редактируют**.
-Сборочная обвязка апстрима удалена: собирать будем своим Gradle 9.6.1 под Java 25
-в отдельной папке `26.2/`.
+<p align="center">
+  <b>Copy, paste and place structures in Minecraft 26.2 on the Fabric loader.</b><br>
+  Scan any build into a <code>.blueprint</code> file, preview it anywhere, rotate and paste it —
+  an unofficial community port of <a href="https://github.com/ldtteam/Structurize">LDTTeam's Structurize</a>
+  from NeoForge to Fabric.
+</p>
+
+<p align="center">
+  <img alt="Minecraft 26.2" src="https://img.shields.io/badge/Minecraft-26.2-brightgreen?style=for-the-badge">
+  <img alt="Fabric" src="https://img.shields.io/badge/Loader-Fabric%200.19.3-1976d2?style=for-the-badge">
+  <img alt="Fabric API" src="https://img.shields.io/badge/Fabric%20API-0.154.2%2B26.2-1976d2?style=for-the-badge">
+  <img alt="Java 25" src="https://img.shields.io/badge/Java-25-orange?style=for-the-badge">
+  <img alt="License GPL-3.0" src="https://img.shields.io/badge/License-GPL--3.0-blue?style=for-the-badge">
+</p>
+
+<p align="center">
+  <a href="#-download">Download</a> ·
+  <a href="#-the-other-ports">Other ports</a> ·
+  <a href="#-what-this-mod-does">Features</a> ·
+  <a href="#-installation">Installation</a> ·
+  <a href="#-building-from-source">Build</a> ·
+  <a href="#%EF%B8%8F-known-limitations">Limitations</a> ·
+  <a href="#-issues-and-bug-reports">Issues</a> ·
+  <a href="#-credits-and-license">Credits</a>
+</p>
+
+---
+
+## 🧩 The other ports
+
+This repository is one piece of a set. The goal of the whole set is to bring the
+**[MineColonies](https://github.com/unknown-wq/minecolonies) mod family to Fabric on Minecraft 26.2**.
+Structurize sits in the middle of that stack: it needs the two leaf mods, and MineColonies needs it.
+
+| Mod | Fabric 26.2 port | Original (upstream) | Role in the stack |
+|---|---|---|---|
+| **BlockUI** | [unknown-wq/BlockUI](https://github.com/unknown-wq/BlockUI) | [ldtteam/BlockUI](https://github.com/ldtteam/BlockUI) | XML-driven GUI framework. A leaf — ported first |
+| **Domum Ornamentum** | [unknown-wq/Domum-Ornamentum](https://github.com/unknown-wq/Domum-Ornamentum) | [ldtteam/Domum-Ornamentum](https://github.com/ldtteam/Domum-Ornamentum) | Skinnable decorative blocks. Also a leaf |
+| **Structurize** | **you are here** | [ldtteam/Structurize](https://github.com/ldtteam/Structurize) | Blueprint scanning and placement. Needs both leaves |
+| **MineColonies** | [unknown-wq/minecolonies](https://github.com/unknown-wq/minecolonies) | [ldtteam/minecolonies](https://github.com/ldtteam/minecolonies) | The colony-building mod itself |
 
 ```
-/
-├── 1.21.1/         # исходник: MC 1.21.1 / NeoForge 21.1.84 / Java 21, 194 java
-├── porting-26.2/   # инструкции для оркестратора и агентов + скрипты массовых ренеймов
-├── gradle-dist/    # вендоренный Gradle 9.6.1 (в контейнере его не скачать)
-└── 26.2/           # (появится) сам порт на Fabric 26.2
+BlockUI  ──┐
+           ├──> Structurize ──> MineColonies
+Domum Ornamentum ──────────────┘
 ```
 
-Окружение ставится один раз:
+> All of these are **ports, not forks with new features**. The gameplay, content and IDs are the
+> upstream authors' work; what happens here is the move from **NeoForge to Fabric** and up to
+> **Minecraft 26.2**.
 
-```sh
-./gradle-dist/install.sh                                  # → /opt/gradle-9.6.1
-export JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64
-/opt/gradle-9.6.1/bin/gradle --version                    # должно быть 9.6.1
+The porting notes and tooling behind all of them live in
+[unknown-wq/port-kit](https://github.com/unknown-wq/port-kit).
+
+---
+
+## 📦 Download
+
+**The built mod jar lives in [`dist/`](dist/).** Grab it there — no build step required.
+
+```
+dist/structurize-26.2-1.0.0.jar
 ```
 
-`./gradlew` в этом окружении не работает: прокси отдаёт 403 на ассеты GitHub-релизов.
+Structurize **will not load on its own** — it needs Domum Ornamentum and BlockUI, both of which have
+matching 26.2 builds in their own `dist/` folders. See [`dist/README.md`](dist/README.md) for the
+checksum and the full list.
 
-Порядок портирования: **BlockUI и Domum Ornamentum (листья) → Structurize → MineColonies**.
+---
 
-Structurize — библиотека, на которой стоит MineColonies: она читает и размещает
-`.blueprint`-постройки (в форке MineColonies их 9374 штуки). По §2 плана порта
-библиотека портируется **раньше** мода, который её потребляет.
+## 🏗 What this mod does
 
-## Версии на момент снапшота
+Structurize is a **builder's toolkit and a library**. It is what MineColonies uses to place its
+9,000+ building schematics, and it works standalone as a creative building tool.
 
-Взято из удалённого `gradle.properties` — больше их взять негде.
+- **Scan Tool** — select a region and save it to a `.blueprint` file, entities and block entities
+  included
+- **Build Tool** — load a blueprint, preview it in the world, move, rotate and mirror it, then paste
+- **Shape Tool** — generate spheres, cylinders, domes, pyramids and other shapes from parameters
+  instead of placing blocks by hand
+- **Structure packs** — blueprints ship in packs, browsable in game and loaded from disk or from
+  the server
+- **Substitution blocks** — placeholders for "any block", "any solid block" or a tagged material,
+  so one blueprint can be built from whatever the player has
+- **Undo and redo** for placements, with a scan of the required materials before you build
+
+**Port facts**
 
 | | |
 |---|---|
-| Ветка | `version/1.21` @ `11982e0` (09.07.2026) — самая свежая линия 1.21 |
-| Minecraft | **1.21.1**, `minecraftRange=[1.21, 1.22)` |
-| NeoForge | **21.1.84** (минимум `21.0.143`) |
-| Java | **21** |
-| modId / group / version | `structurize` / `com.ldtteam` / `0.0.1` |
-| BlockUI | `1.0.191-1.21.1-snapshot` |
-| Domum Ornamentum | `1.0.203-1.21.1-snapshot` |
-| Parchment | `1.21 / 2024.07.28` — после 26.1 не нужен, игра необфусцирована |
+| Minecraft | 26.2 |
+| Loader | Fabric Loader 0.19.3+ |
+| Requires | Fabric API 0.154.2+26.2, Domum Ornamentum, BlockUI |
+| Java | 25 |
+| Environment | client **and** dedicated server (both sides) |
+| Mod id | `structurize` |
+| License | GPL-3.0-only (same as upstream) |
 
-`version/main` апстрима (и то, на что смотрел форк до этого коммита) — это линия
-**1.20.1 / Forge 47.1.3 / Java 17**, то есть на версию старше. Мы на ней не работаем.
+---
 
-## Зависимости: можно ли работать только с этим репозиторием?
+## 🚀 Installation
 
-**Почти.** Из 194 java-файлов внешние библиотеки ldtteam трогают ~50, и ни одна из них
-не является структурной — в отличие от MineColonies, где GUI целиком чужой.
+1. Install [Fabric Loader](https://fabricmc.net/use/installer/) 0.19.3 or newer for Minecraft 26.2.
+2. Put [Fabric API](https://modrinth.com/mod/fabric-api) for 26.2 into your `mods/` folder.
+3. Add the two required mods from their ports:
+   [Domum Ornamentum](https://github.com/unknown-wq/Domum-Ornamentum) and
+   [BlockUI](https://github.com/unknown-wq/BlockUI) — the jars are in their `dist/` folders.
+4. Copy the jar from [`dist/`](dist/) into the same `mods/` folder.
+5. Launch. All four mods are needed on both client and server.
 
-| Библиотека | Файлов | Импортов | Что реально используется |
-|---|---|---:|---|
-| `com.ldtteam.common` | 36 | 65 | **это часть BlockUI**, а не отдельная библиотека — см. ниже. 49 из 65 — сетевой слой (`PlayMessageType`, `AbstractServerPlayMessage`, `AbstractClientPlayMessage`), остальное мелочь: `BlockToItemHelper`, `LanguageHandler`, `AbstractConfiguration`, `fakelevel/SingleBlockFakeLevel` |
-| `com.ldtteam.blockui` | 14 | 64 | GUI: `BOWindow`, `Pane`, `View`, `ScrollingList`, `Button`, `TextField`, `Text`, `ItemIcon` |
-| `com.ldtteam.domumornamentum` | 4 | 15 | Интеграция с их декоративными блоками: `IMateriallyTexturedBlock`, `MaterialTextureData`, `BlockUtils` |
+---
 
-Что это значит для порта:
+## 🔨 Building from source
 
-- **`com.ldtteam.common` — это BlockUI** (уточнено при разборе форка `unknown-wq/BlockUI`).
-  Отдельной библиотеки с таким именем не существует: пакет физически лежит в исходниках
-  BlockUI, `src/main/java/com/ldtteam/common/**` — 28 файлов `network/`, `fakelevel/`,
-  `codec/`, `config/`, `language/`, `util/`. Искать и копировать нечего: эти 36 файлов
-  закрываются тем же решением, что и следующая строка. Сетевая часть (49 из 65 импортов)
-  при переходе на Fabric всё равно переписывается (контракт C3).
-- **BlockUI — единственное настоящее решение здесь, и оно уже сдвинулось.** Форк
-  `unknown-wq/BlockUI` разложен: апстримная ветка `port/26` — это **MC 26.1.2, Java 25**,
-  109 файлов, ванильная ось пройдена целиком, внешних зависимостей нет вообще.
-  Портировать его первым дешевле, чем переписывать 14 экранов Structurize на ванильный
-  `Screen`, — тем более что он же закрывает 146 файлов GUI и 209 импортов
-  `ldtteam.common` в MineColonies.
-- **Domum Ornamentum — 4 файла, режется по §10.** В `neoforge.mods.toml` он объявлен
-  обязательным, но по коду это опциональная интеграция с их блоками; без неё
-  Structurize работает.
+The build targets **Java 25** and uses **Fabric Loom** on **Gradle 9.6.1**.
 
-Всё остальное в импортах — то, что и так приезжает с игрой: `com.mojang.brigadier`
-(39), `com.mojang.blaze3d` (19), `com.mojang.serialization` (15), `io.netty` (12),
-`com.google.gson` (12), Guava, `org.joml`, fastutil, Apache Commons, slf4j, LWJGL,
-`org.jetbrains.annotations` (74 файла — аннотации, при желании меняются на jspecify).
-Отдельных сторонних библиотек, которых нет в 26.2, **нет**.
+```sh
+./gradle-dist/install.sh                       # installs Gradle 9.6.1 to /opt and OpenJDK 25
+export JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64
 
-**Вывод:** внешняя зависимость у Structurize фактически одна — **BlockUI** (14 файлов GUI
-плюс 36 на `ldtteam.common`, который внутри него и лежит), а Domum Ornamentum (4 файла)
-отрезается по §10. Порядок понятен: BlockUI первым, Structurize за ним. Сам по себе
-Structurize на порядок легче MineColonies — 194 файла против 2060, 3.5 МБ ресурсов
-против 150 МБ, и своих миксинов тоже нет.
+mkdir -p 26.2/libs                             # dependency jars are not committed:
+                                               #   domum_ornamentum-26.2-1.0.0.jar
+                                               #   blockui-0.0.1.jar
+cd 26.2
+/opt/gradle-9.6.1/bin/gradle build             # jar lands in 26.2/build/libs/
+```
 
-## Что вычищено из `1.21.1/` относительно апстрима
+Both dependency jars come from the sibling ports' `dist/` folders. Loom 1.17 on 26.2 has no
+`modImplementation` — the game is unobfuscated, so there is nothing to remap — and Fabric Loader
+finds the mods on the classpath through their `fabric.mod.json`.
 
-`build.gradle` состоял из одной строки
-`apply from: 'https://raw.githubusercontent.com/ldtteam/OperaPublicaCreator/ng7/gradle/mod.gradle'`,
-то есть весь build-скрипт качался из сети, а зависимости шли с maven ldtteam.
+Useful tasks: `runClient`, `runServer`, `test`, `validateAccessWidener`, `runDatagen`. Minecraft
+26.1+ ships unobfuscated, so the build carries **no mappings line**.
 
-- **Сборка:** `build.gradle`, `settings.gradle`, `gradle.properties`, `gradlew`,
-  `gradlew.bat`, `gradle/` (wrapper + скрипты конфигурации).
-- **CI и сервисы организации:** `.github/` (воркфлоу релизов, шаблоны issue и PR
-  чужого трекера), `.travis.yml` + `travis/`, `crowdin.yml`, `.phraseapp.yml`,
-  `.pullapprove.yml`, `sonar.json`.
-- **Стиль и dev-окружение:** `config/` (checkstyle, PMD), `documentation/`
-  (настройка Eclipse/IntelliJ, Sonar).
-- **Процесс апстрима:** `CLA.md`.
+---
 
-Осталось: `src/` (194 java + `datagen` и `test` сорссеты + ресурсы), `LICENSE`
-(GPL-3.0), `README.md` и `structurize.png` самого мода, `.gitattributes`.
+## 🧭 How the port was done
 
-## Инструкции по порту
+Structurize is the largest of the three ports and the only one that had to cross **both axes at
+once**: Minecraft 1.21.1 → 26.2 *and* NeoForge → Fabric. The base is upstream's `version/1.21`
+branch (NeoForge 21.1.84, Java 21).
 
-Лежат здесь же, в `porting-26.2/` — те же файлы, что в форках MineColonies и
-Domum Ornamentum:
+- **The GUI was parked and landed last.** 13 files waited for the BlockUI port; when it was ready
+  they went in with the XML layouts completely unchanged.
+- **A compat layer reconstructed from call sites turned out to be exact.** While BlockUI was still
+  in flight, `com.ldtteam.common` was rebuilt from the way Structurize called it. Swapping in the
+  real library afterwards took three `sed` substitutions across 36 files and produced four compile
+  errors — call sites *are* the contract.
+- **AccessTransformer → AccessWidener** — 8 of 13 upstream lines were still live; the dead ones are
+  recorded in a comment inside the file, since Loom fails the build on a member that no longer
+  exists.
+- **Two real bugs fixed on the way**: the blueprint data-version enum stopped at 1.21.1, which made
+  the server refuse to start outright, and all six hand-written recipes still used the pre-26.2
+  object form for ingredients, so the mod had no working recipes at all.
+- **Rendering rebuilt** on 26.2's submit-based pipeline — `VertexBuffer`, `ShaderInstance`,
+  `BakedModel` and `ModelData` are all gone.
 
-| Файл | Что это |
-|---|---|
-| **`PORT-ANY-MOD-26.2.md`** | Универсальный план: выбор маршрута, окружение, замороженные контракты, разбиение работы между агентами, правило деградации, приёмка, готовые промпты. **Начинать отсюда** |
-| `NEOFORGE-TO-FABRIC-26.2.md` + `NOTES-A/B/C.md` | Ближайший аналог задачи: NeoForge → Fabric 26.2 одним хопом, пофайловые рецепты, проверенные по декомпилированным исходникам |
-| `PORT-MOD-26.2.md`, `PORT-CHEATSHEET.md`, `PORTING-GUIDE-26.2.md` | Таблицы ренеймов, готовые исправления повторяющихся ошибок компиляции, пер-версионный hit-list ломок |
-| `port-resolve-imports.py` | Переписывает `import net.minecraft.*` по декомпилированному дереву — закрывает переехавшие пакеты без ручных правок |
-| `fix-recipes.py`, `port-rename*.sh`, `port-rename6.pl` | Рецепты JSON в формат 26.2 и массовые ренеймы |
+Status: `build` is green including tests and AccessWidener validation, and a dedicated server boots
+a fresh world with no errors. The detailed record is in [`26.2/PORT-STATUS.md`](26.2/PORT-STATUS.md)
+and [`26.2/PORT-GAPS.md`](26.2/PORT-GAPS.md).
 
-`API-CHECKLIST-26.2.md` из форка MineColonies сюда не копировался: его цифры получены
-grep-ом по тому коду и для этих 194 файлов неверны. Аналог собирается тем же способом —
-скрипт пересчёта лежит в конце того файла.
+---
+
+## ⚠️ Known limitations
+
+Some NeoForge-only hooks have no equivalent in Fabric or in vanilla 26.2, and parts of the render
+pipeline were rewritten wholesale. Where something was cut, the original was kept in place,
+commented and logged rather than deleted.
+
+| Area | What differs from upstream | Impact |
+|---|---|---|
+| **Preview transparency** | Blend state is a property of an immutable `RenderPipeline` in 26.2 | The blueprint preview renders opaque; the transparency setting does nothing |
+| **Fluids in the preview** | The fluid renderer lives inside the section builder, unreachable from a fake level | Water and lava in a blueprint are not drawn |
+| **Preview lighting and performance** | The bake-into-`VertexBuffer` path was removed | Flat lighting, and large blueprints may cost FPS — one submit per block per frame |
+| **Config** | Inherited from BlockUI: `ModConfigSpec` has no counterpart | Preview settings do not persist or sync; they reset each launch |
+| **Tag substitution anchor** | `BlockEntityWithoutLevelRenderer` was removed | The anchor item renders as a flat model in hand and inventory |
+| **Capability inventories** | Fabric has no capability API with the same semantics | Containers published only through a mod capability are not counted in "required items"; all vanilla containers are |
+| **Rotate keybinds** | 26.2 has no keybind modifiers | `Shift`+`←`/`→` became **`X`** / **`Z`** |
+| **Keybind conflict contexts** | NeoForge-only concept | Behaviour is restored in code, but the controls screen still shows blueprint-window keys as conflicting |
+| **Client rendering** | Compiles and loads, not visually play-tested end to end | Please report anything that looks wrong |
+
+Each row maps to a `TODO(port-26.2)` marker in the source and to a row in
+[`26.2/PORT-GAPS.md`](26.2/PORT-GAPS.md) with a concrete repair plan.
+
+---
+
+## 🐞 Issues and bug reports
+
+**Found a problem? [Open an issue](https://github.com/unknown-wq/Structurize/issues) — please do.**
+Bug reports are genuinely welcome; that is how the remaining rough edges get found.
+
+- Report **port bugs here**, not to LDTTeam. Anything caused by the move to Fabric 26.2 is this
+  repository's doing, not upstream's.
+- Helpful things to include: Minecraft / Fabric Loader / Fabric API versions, the versions of the
+  three companion mods, the full log (`logs/latest.log` or the crash report), and the steps that
+  reproduce it.
+- If the same bug also happens on upstream's NeoForge build, it belongs
+  [upstream](https://github.com/ldtteam/Structurize/issues) instead.
+
+---
+
+## 📁 Repository layout
+
+```
+.
+├── dist/            # ← the built mod jar, ready to drop into mods/
+├── 26.2/            # the Fabric 26.2 port — sources, build, port documentation
+├── 1.21.1/          # read-only snapshot of upstream version/1.21 (NeoForge 21.1.84) — the port base
+├── porting-26.2/    # notes, findings, rename tables and scripts collected while porting
+└── gradle-dist/     # vendored Gradle 9.6.1 + toolchain installer
+```
+
+The snapshot folder is upstream code, kept verbatim for reference and diffing. It is not edited and
+is not part of the build.
+
+---
+
+## 🙏 Credits and license
+
+**Structurize is the work of [LDTTeam (Let's Dev Together)](https://github.com/ldtteam)** — the team
+behind MineColonies, BlockUI and Domum Ornamentum. The blueprint format, the tools, the renderer and
+every line of game logic in this repository originate with them. All credit for the mod belongs to
+its original authors and contributors:
+
+- Upstream source: **[github.com/ldtteam/Structurize](https://github.com/ldtteam/Structurize)**
+- CurseForge: [Structurize](https://www.curseforge.com/minecraft/mc-mods/structurize)
+- Website: [minecolonies.com](https://minecolonies.com/) · Discord: [LDTTeam](https://discord.gg/Tb3PagMpaG) ·
+  support them on [Patreon](https://www.patreon.com/Minecolonies)
+
+This repository is an **unofficial, community-maintained port to the Fabric loader**. It is not
+affiliated with, endorsed by or supported by LDTTeam — please do not send them support requests
+about this build.
+
+Licensed under **[GPL-3.0-only](26.2/LICENSE)**, the same license as the upstream project, and
+distributed under its terms.
