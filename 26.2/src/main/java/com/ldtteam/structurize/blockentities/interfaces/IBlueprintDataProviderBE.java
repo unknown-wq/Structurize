@@ -7,7 +7,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import com.ldtteam.structurize.compat.util.Tuple;
+import com.ldtteam.structurize.api.Tuple;
 import net.minecraft.core.BlockPos;
 
 import java.util.*;

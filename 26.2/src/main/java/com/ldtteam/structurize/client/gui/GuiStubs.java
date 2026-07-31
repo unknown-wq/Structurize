@@ -1,7 +1,7 @@
 package com.ldtteam.structurize.client.gui;
 
 import com.ldtteam.blockui.BOScreen;
-import com.ldtteam.structurize.compat.util.Tuple;
+import com.ldtteam.structurize.api.Tuple;
 import com.ldtteam.structurize.util.ScanToolData;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
