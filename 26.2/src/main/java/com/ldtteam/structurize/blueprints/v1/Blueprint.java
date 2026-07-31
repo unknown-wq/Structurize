@@ -1,8 +1,8 @@
 package com.ldtteam.structurize.blueprints.v1;
 
 import com.ldtteam.structurize.api.Log;
-import com.ldtteam.structurize.compat.common.fakelevel.IFakeLevelBlockGetter;
-import com.ldtteam.structurize.compat.common.util.BlockToItemHelper;
+import com.ldtteam.common.fakelevel.IFakeLevelBlockGetter;
+import com.ldtteam.common.util.BlockToItemHelper;
 import com.ldtteam.structurize.api.BlockPosUtil;
 import com.ldtteam.structurize.api.ItemStackUtils;
 import com.ldtteam.structurize.blockentities.BlockEntityTagSubstitution;

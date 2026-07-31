@@ -4,14 +4,6 @@ accessWidener	v2	official
 # Header namespace is "official" because 26.1+ ships unobfuscated with Mojang names, so member
 # paths are written exactly as they appear in /opt/mc-src.
 
-# --- blueprint renderer -------------------------------------------------------------------------
-# util/WorldRenderMacros: frustum culling of preview boxes.
-# 26.2 note: cubeInFrustum went private AND changed its return type from boolean to int.
-accessible	method	net/minecraft/client/renderer/culling/Frustum	cubeInFrustum	(DDDDDD)I
-
-# client/BlueprintRenderer: moves the camera to the blueprint origin while rendering.
-accessible	method	net/minecraft/client/Camera	setPosition	(Lnet/minecraft/world/phys/Vec3;)V
-
 # --- keybinds -----------------------------------------------------------------------------------
 # event/ClientEventSubscriber: replays a pick-block press.
 accessible	field	net/minecraft/client/KeyMapping	clickCount	I
@@ -30,9 +22,15 @@ accessible	method	net/minecraft/world/level/levelgen/SurfaceRules$Context	update
 accessible	method	net/minecraft/world/level/levelgen/SurfaceRules$Context	updateY	(IIII)V
 accessible	class	net/minecraft/world/level/levelgen/SurfaceRules$SurfaceRule
 
+# --- 1.12.2 blueprint fixer ---------------------------------------------------------------------
+# blueprints/v1/BlueprintUtil#fixCross1343: the flower pot / note block block-entity -> block-state maps.
+# 26.2 moved both out of ChunkPalettedStorageFix into its private nested MappingConstants, so the class
+# itself has to be widened as well as the two fields.
+accessible	class	net/minecraft/util/datafix/fixes/ChunkPalettedStorageFix$MappingConstants
+accessible	field	net/minecraft/util/datafix/fixes/ChunkPalettedStorageFix$MappingConstants	FLOWER_POT_MAP	Ljava/util/Map;
+accessible	field	net/minecraft/util/datafix/fixes/ChunkPalettedStorageFix$MappingConstants	NOTE_BLOCK_MAP	Ljava/util/Map;
+
 # --- dropped from the NeoForge access transformer -----------------------------------------------
-# public net.minecraft.util.datafix.fixes.ChunkPalettedStorageFix FLOWER_POT_MAP / NOTE_BLOCK_MAP
-#   -> no longer referenced by any Structurize source file.
 # public-f net.minecraft.client.renderer.RenderStateShard setupState
 #   -> RenderStateShard does not exist in 26.2 (render pipelines replaced it).
 # public com.mojang.blaze3d.platform.GlStateManager BLEND / BlendState / BooleanState

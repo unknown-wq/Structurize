@@ -1,6 +1,6 @@
 package com.ldtteam.structurize.util;
 
-import com.ldtteam.structurize.compat.common.util.BlockToItemHelper;
+import com.ldtteam.common.util.BlockToItemHelper;
 import com.ldtteam.structurize.compat.DomumCompat;
 import com.ldtteam.structurize.api.ItemStackUtils;
 import com.ldtteam.structurize.api.RotationMirror;

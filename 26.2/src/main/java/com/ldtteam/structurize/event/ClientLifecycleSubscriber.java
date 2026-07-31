@@ -3,10 +3,13 @@ package com.ldtteam.structurize.event;
 import com.ldtteam.structurize.api.Log;
 import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.client.BlueprintHandler;
+import com.ldtteam.structurize.blockentities.ModBlockEntities;
 import com.ldtteam.structurize.client.ClientItemStackTooltip;
-import com.ldtteam.structurize.compat.common.language.LanguageHandler;
+import com.ldtteam.structurize.client.TagSubstitutionRenderer;
+import com.ldtteam.common.language.LanguageHandler;
 import com.ldtteam.structurize.items.ItemStackTooltip;
 import com.ldtteam.structurize.storage.ClientStructurePackLoader;
+import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.ClientTooltipComponentCallback;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
@@ -80,21 +83,18 @@ public class ClientLifecycleSubscriber
          * ItemBlockRenderTypes.setRenderLayer(ModBlocks.blockSubstitution.get(), RenderType.translucent());
          */
 
-        // TODO(port-26.2): DISABLED — custom model geometry loaders moved to fabric-model-loading-api-v1 and
-        // client/model/OverlaidModelLoader (render agent) is not ported yet.
+        // TODO(port-26.2): DISABLED — CLOSED FOR GOOD. IGeometryLoader / IUnbakedGeometry / BakedModel are all
+        // gone from 26.2, so OverlaidModelLoader has nothing left to implement and nothing to register into.
         /*
          * event.register(Constants.resLocStruct("overlaid"), new OverlaidModelLoader());
          */
 
-        // TODO(port-26.2): DISABLED — BlockEntityRendererRegistry.register() is available, but
-        // client/TagSubstitutionRenderer still extends the removed BlockEntityWithoutLevelRenderer and does
-        // not implement the 26.2 render-state BlockEntityRenderer yet (render agent).
-        /*
-         * BlockEntityRendererRegistry.register(ModBlockEntities.TAG_SUBSTITUTION.get(), TagSubstitutionRenderer::new);
-         */
+        // The in-world half of the tag anchor renderer is back: TagSubstitutionRenderer now implements the
+        // 26.2 render-state BlockEntityRenderer<T, S>. Its item half stays cut, see the renderer's own markers.
+        BlockEntityRendererRegistry.register(ModBlockEntities.TAG_SUBSTITUTION.get(), TagSubstitutionRenderer::new);
 
-        // TODO(port-26.2): DISABLED — RegisterRenderBuffersEvent is NeoForge only and
-        // util/WorldRenderMacros.RenderTypes is being rewritten onto render pipelines (render agent).
+        // TODO(port-26.2): DISABLED — CLOSED FOR GOOD. RegisterRenderBuffersEvent is NeoForge only and 26.2
+        // has no mod owned render buffers at all: batching is done by SubmitNodeCollection. Nothing to port.
         /*
          * WorldRenderMacros.RenderTypes.registerBuffer(event);
          */

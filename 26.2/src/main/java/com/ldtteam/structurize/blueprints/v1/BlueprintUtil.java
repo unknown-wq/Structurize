@@ -14,7 +14,7 @@ import net.minecraft.nbt.*;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.SharedConstants;
 import net.minecraft.util.datafix.fixes.References;
-// import net.minecraft.util.datafix.fixes.ChunkPalettedStorageFix; // unused, see the marker in fixCross1343
+import net.minecraft.util.datafix.fixes.ChunkPalettedStorageFix;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -506,12 +506,10 @@ public class BlueprintUtil
       final CompoundTag[] tileEntities,
       final CompoundTag[] entities)
     {
-        // TODO(port-26.2): DEGRADED — ChunkPalettedStorageFix.FLOWER_POT_MAP / NOTE_BLOCK_MAP moved into the
-        // private nested class ChunkPalettedStorageFix$MappingConstants and are private static; without
-        // AccessWidener lines for that nested class the 1.12.2 flower-pot/note-block block-entity -> block-state
-        // conversion cannot run. Very old (1.12.2) blueprints keep their POTTED_CACTUS / NOTE_BLOCK palette entry
-        // instead of the correct potted plant / tuned note block. Everything else in the 1343 fixer still runs.
-        /*
+        // 26.2: both maps moved into the private nested ChunkPalettedStorageFix$MappingConstants; three
+        // AccessWidener lines (see src/main/resources/structurize.accesswidener) bring them back.
+        // The NBT getters around them are the ones that changed: getString/getInt/getBoolean now return
+        // Optional, so the "...Or(key, default)" forms are used instead.
         final int oldSize = palette.size();
         for (short i = 0; i < oldSize; i++)
         {
@@ -519,24 +517,23 @@ public class BlueprintUtil
             if (bs.getBlock() == Blocks.POTTED_CACTUS) // flower pot fix
             {
                 teToBlockStateFix(palette, blocks, tileEntities, i, teCompound -> {
-                    final String type = teCompound.getString("Item") + teCompound.getInt("Data");
-                    return (CompoundTag) ChunkPalettedStorageFix.FLOWER_POT_MAP
-                                           .getOrDefault(type, ChunkPalettedStorageFix.FLOWER_POT_MAP.get("minecraft:air0"))
+                    final String type = teCompound.getStringOr("Item", "") + teCompound.getIntOr("Data", 0);
+                    return (CompoundTag) ChunkPalettedStorageFix.MappingConstants.FLOWER_POT_MAP
+                                           .getOrDefault(type, ChunkPalettedStorageFix.MappingConstants.FLOWER_POT_MAP.get("minecraft:air0"))
                                            .getValue();
                 });
             }
             else if (bs.getBlock() == Blocks.NOTE_BLOCK) // note block fix
             {
                 teToBlockStateFix(palette, blocks, tileEntities, i, teCompound -> {
-                    final String type = Boolean.toString(teCompound.getBoolean("powered"))
-                                          + (byte) Math.min(Math.max(teCompound.getInt("note"), 0), 24);
-                    return (CompoundTag) ChunkPalettedStorageFix.NOTE_BLOCK_MAP
-                                           .getOrDefault(type, ChunkPalettedStorageFix.NOTE_BLOCK_MAP.get("false0"))
+                    final String type = Boolean.toString(teCompound.getBooleanOr("powered", false))
+                                          + (byte) Math.min(Math.max(teCompound.getIntOr("note", 0), 0), 24);
+                    return (CompoundTag) ChunkPalettedStorageFix.MappingConstants.NOTE_BLOCK_MAP
+                                           .getOrDefault(type, ChunkPalettedStorageFix.MappingConstants.NOTE_BLOCK_MAP.get("false0"))
                                            .getValue();
                 });
             }
         }
-        */
     }
 
     /**

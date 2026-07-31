@@ -1,13 +1,13 @@
 package com.ldtteam.structurize.network.messages;
 
-import com.ldtteam.structurize.compat.common.network.AbstractServerPlayMessage;
-import com.ldtteam.structurize.compat.common.network.PlayMessageType;
+import com.ldtteam.common.network.AbstractServerPlayMessage;
+import com.ldtteam.common.network.PlayMessageType;
 import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.storage.rendering.ServerPreviewDistributor;
 import com.ldtteam.structurize.storage.rendering.types.BlueprintPreviewData;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
-import com.ldtteam.structurize.compat.common.network.PlayMessageContext;
+import com.ldtteam.common.network.PlayMessageContext;
 
 /**
  * Sync blueprint preview data to the server.

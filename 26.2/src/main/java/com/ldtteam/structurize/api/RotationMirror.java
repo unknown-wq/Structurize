@@ -1,6 +1,6 @@
 package com.ldtteam.structurize.api;
 
-import com.ldtteam.structurize.compat.common.codec.Codecs;
+import com.ldtteam.common.codec.Codecs;
 import com.ldtteam.structurize.blueprints.FacingFixer;
 import com.mojang.serialization.Codec;
 import io.netty.buffer.ByteBuf;

@@ -53,9 +53,9 @@ public class LifecycleSubscriber
     }
 
     /**
-     * Publishes the codecs of all 25 play payloads and installs the serverbound receivers. The clientbound
-     * receivers are installed later, from the client entrypoint, by
-     * {@link com.ldtteam.structurize.compat.common.network.PlayMessageType#registerClientReceivers()}.
+     * Publishes the codecs of all 25 play payloads and installs the serverbound receivers. Clientbound
+     * receivers are queued by {@code PlayMessageType#register()} and drained later from the client
+     * entrypoint by {@link com.ldtteam.common.network.ModNetworking#registerClient()}.
      */
     private static void registerMessages()
     {

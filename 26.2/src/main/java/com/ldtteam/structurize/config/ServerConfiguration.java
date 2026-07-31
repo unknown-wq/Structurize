@@ -1,13 +1,13 @@
 package com.ldtteam.structurize.config;
 
-import com.ldtteam.structurize.compat.common.config.AbstractConfiguration;
+import com.ldtteam.common.config.AbstractConfiguration;
 import com.ldtteam.structurize.api.constants.Constants;
 import net.minecraft.core.Direction;
-import com.ldtteam.structurize.compat.common.config.ModConfigSpec.BooleanValue;
-import com.ldtteam.structurize.compat.common.config.ModConfigSpec.Builder;
-import com.ldtteam.structurize.compat.common.config.ModConfigSpec.ConfigValue;
-import com.ldtteam.structurize.compat.common.config.ModConfigSpec.EnumValue;
-import com.ldtteam.structurize.compat.common.config.ModConfigSpec.IntValue;
+import com.ldtteam.common.config.ConfigValue.BooleanValue;
+import com.ldtteam.common.config.ConfigValue.Builder;
+import com.ldtteam.common.config.ConfigValue;
+import com.ldtteam.common.config.ConfigValue.EnumValue;
+import com.ldtteam.common.config.ConfigValue.IntValue;
 
 /**
  * Mod server configuration.

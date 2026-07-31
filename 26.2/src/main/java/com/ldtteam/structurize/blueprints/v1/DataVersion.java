@@ -12,9 +12,15 @@ public enum DataVersion
      * - successors match
      * - upcoming has data version = (latest data version + 1)
      */
-    UPCOMING(3955 + 1, null, null),
+    UPCOMING(4903 + 1, null, null),
 
-    v1_21_1(3955, "1.21.1", UPCOMING),
+    // 26.2 data version, /opt/mc-src/net/minecraft/DetectedVersion.java:28. The releases between 1.21.1 and
+    // 26.2 (1.21.2 ... 1.21.11, 26.1.x) are deliberately not listed: this chain only drives the step-by-step
+    // walk in DataFixerUtils, and a blueprint saved by any of them is simply handed to the vanilla data fixer
+    // in one jump, which is what the vanilla fixer does internally anyway.
+    v26_2(4903, "26.2", UPCOMING),
+
+    v1_21_1(3955, "1.21.1", v26_2),
     v1_21(3953, "1.21", v1_21_1),
     v1_20_6(3839, "1.20.6", v1_21),
     v1_20_5(3837, "1.20.5", v1_20_6),

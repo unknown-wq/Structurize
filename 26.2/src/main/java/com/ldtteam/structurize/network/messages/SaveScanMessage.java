@@ -1,7 +1,7 @@
 package com.ldtteam.structurize.network.messages;
 
-import com.ldtteam.structurize.compat.common.network.AbstractClientPlayMessage;
-import com.ldtteam.structurize.compat.common.network.PlayMessageType;
+import com.ldtteam.common.network.AbstractClientPlayMessage;
+import com.ldtteam.common.network.PlayMessageType;
 import com.ldtteam.structurize.api.Log;
 import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.storage.ClientStructurePackLoader;
@@ -13,7 +13,7 @@ import net.minecraft.nbt.NbtIo;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.entity.player.Player;
-import com.ldtteam.structurize.compat.common.network.PlayMessageContext;
+import com.ldtteam.common.network.PlayMessageContext;
 
 import java.io.IOException;
 

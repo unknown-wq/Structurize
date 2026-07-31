@@ -1,6 +1,6 @@
 package com.ldtteam.structurize.api;
 
-import com.ldtteam.structurize.compat.common.fakelevel.SingleBlockFakeLevel.SidedSingleBlockFakeLevel;
+import com.ldtteam.common.fakelevel.SingleBlockFakeLevel.SidedSingleBlockFakeLevel;
 import com.ldtteam.structurize.compat.itemhandler.IItemHandler;
 import com.ldtteam.structurize.compat.itemhandler.ItemHandlers;
 import net.minecraft.core.BlockPos;

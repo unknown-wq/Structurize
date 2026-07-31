@@ -1,7 +1,7 @@
 package com.ldtteam.structurize;
 
 import com.ldtteam.structurize.client.ModKeyMappings;
-import com.ldtteam.structurize.compat.common.network.PlayMessageType;
+import com.ldtteam.common.network.ModNetworking;
 import com.ldtteam.structurize.event.ClientEventSubscriber;
 import com.ldtteam.structurize.event.ClientLifecycleSubscriber;
 import com.ldtteam.structurize.storage.ClientFutureProcessor;
@@ -24,7 +24,10 @@ public class StructurizeClient implements ClientModInitializer
     @Override
     public void onInitializeClient()
     {
-        PlayMessageType.registerClientReceivers();
+        // Drains the clientbound receivers queued by PlayMessageType#register() during common init. BlockUI's
+        // own client initializer calls this too; the call is idempotent, and doing it here as well removes any
+        // dependency on the order in which Fabric runs the two client entrypoints.
+        ModNetworking.registerClient();
 
         ClientLifecycleSubscriber.register();
         ClientEventSubscriber.register();

@@ -1,16 +1,16 @@
 package com.ldtteam.structurize.config;
 
-import com.ldtteam.structurize.compat.common.config.AbstractConfiguration;
+import com.ldtteam.common.config.AbstractConfiguration;
 import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.client.BlueprintHandler;
 import com.ldtteam.structurize.network.messages.SyncSettingsToServer;
 import com.ldtteam.structurize.storage.rendering.RenderingCache;
 import com.ldtteam.structurize.storage.rendering.types.BlueprintPreviewData;
-import com.ldtteam.structurize.compat.common.config.ModConfigSpec.BooleanValue;
-import com.ldtteam.structurize.compat.common.config.ModConfigSpec.Builder;
-import com.ldtteam.structurize.compat.common.config.ModConfigSpec.ConfigValue;
-import com.ldtteam.structurize.compat.common.config.ModConfigSpec.DoubleValue;
-import com.ldtteam.structurize.compat.common.config.ModConfigSpec.IntValue;
+import com.ldtteam.common.config.ConfigValue.BooleanValue;
+import com.ldtteam.common.config.ConfigValue.Builder;
+import com.ldtteam.common.config.ConfigValue;
+import com.ldtteam.common.config.ConfigValue.DoubleValue;
+import com.ldtteam.common.config.ConfigValue.IntValue;
 
 import java.util.function.Consumer;
 

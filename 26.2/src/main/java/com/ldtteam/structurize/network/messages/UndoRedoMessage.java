@@ -1,12 +1,12 @@
 package com.ldtteam.structurize.network.messages;
 
-import com.ldtteam.structurize.compat.common.network.AbstractServerPlayMessage;
-import com.ldtteam.structurize.compat.common.network.PlayMessageType;
+import com.ldtteam.common.network.AbstractServerPlayMessage;
+import com.ldtteam.common.network.PlayMessageType;
 import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.management.Manager;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
-import com.ldtteam.structurize.compat.common.network.PlayMessageContext;
+import com.ldtteam.common.network.PlayMessageContext;
 
 /**
  * Message class which handles undoing a change to the world.

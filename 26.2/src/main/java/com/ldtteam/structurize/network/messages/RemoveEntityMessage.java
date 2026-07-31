@@ -1,7 +1,7 @@
 package com.ldtteam.structurize.network.messages;
 
-import com.ldtteam.structurize.compat.common.network.AbstractServerPlayMessage;
-import com.ldtteam.structurize.compat.common.network.PlayMessageType;
+import com.ldtteam.common.network.AbstractServerPlayMessage;
+import com.ldtteam.common.network.PlayMessageType;
 import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.management.Manager;
 import com.ldtteam.structurize.operations.RemoveEntityOperation;
@@ -11,7 +11,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
-import com.ldtteam.structurize.compat.common.network.PlayMessageContext;
+import com.ldtteam.common.network.PlayMessageContext;
 
 /**
  * Message to remove an entity from the world.

@@ -1,14 +1,14 @@
 package com.ldtteam.structurize.network.messages;
 
-import com.ldtteam.structurize.compat.common.network.AbstractServerPlayMessage;
-import com.ldtteam.structurize.compat.common.network.PlayMessageType;
+import com.ldtteam.common.network.AbstractServerPlayMessage;
+import com.ldtteam.common.network.PlayMessageType;
 import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.items.ItemScanTool;
 import com.ldtteam.structurize.util.ScanToolData;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import com.ldtteam.structurize.compat.common.network.PlayMessageContext;
+import com.ldtteam.common.network.PlayMessageContext;
 
 /**
  * Send the scan tool update message to the client.
