@@ -1,42 +1,44 @@
 package com.ldtteam.structurize.datagen;
 
-import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.tag.ModTags;
 import com.ldtteam.structurize.util.BlockUtils;
+import net.fabricmc.fabric.api.datagen.v1.FabricPackOutput;
+import net.fabricmc.fabric.api.datagen.v1.provider.FabricTagsProvider;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.core.Registry;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.data.PackOutput;
-import net.minecraft.data.tags.IntrinsicHolderTagsProvider;
-import net.minecraft.resources.ResourceKey;
+import net.minecraft.data.tags.TagAppender;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.Fallable;
 import net.minecraft.world.level.block.FallingBlock;
-import net.neoforged.neoforge.common.data.ExistingFileHelper;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Datagen provider for Block Tags
+ * Datagen provider for Block Tags.
+ *
+ * <p>Port note: vanilla tags such as {@code minecraft:leaves} are not visible to a Fabric datagen run, so a
+ * plain {@code addTag} aborts with "missing following references". {@code forceAddTag} is Fabric's answer and
+ * serialises byte-identically to the NeoForge output — the same workaround Domum Ornamentum landed on, see
+ * /workspace/domum-ornamentum/26.2/src/main/java/com/ldtteam/domumornamentum/datagen/utils/BlockTagAppender.java:60.</p>
  */
-public class BlockTagProvider extends IntrinsicHolderTagsProvider<Block>
+public class BlockTagProvider extends FabricTagsProvider.BlockTagsProvider
 {
-    public BlockTagProvider(final PackOutput output,
-        final ResourceKey<? extends Registry<Block>> key,
-        final CompletableFuture<HolderLookup.Provider> provider,
-        @Nullable final ExistingFileHelper existingFileHelper)
+    /**
+     * @param output           the pack output.
+     * @param registriesFuture the registry lookup future.
+     */
+    public BlockTagProvider(final FabricPackOutput output, final CompletableFuture<HolderLookup.Provider> registriesFuture)
     {
-        super(output, key, provider, k -> BuiltInRegistries.BLOCK.getResourceKey(k).get(), Constants.MOD_ID, existingFileHelper);
+        super(output, registriesFuture);
     }
 
     @Override
-    protected void addTags(HolderLookup.@NotNull Provider provider)
+    protected void addTags(final HolderLookup.@NotNull Provider provider)
     {
-        final IntrinsicTagAppender<Block> weakSolidTag = this.tag(ModTags.WEAK_SOLID_BLOCKS).addTag(BlockTags.LEAVES);
+        final TagAppender<Block> weakSolidTag = builder(ModTags.WEAK_SOLID_BLOCKS).forceAddTag(BlockTags.LEAVES);
 
         provider.lookupOrThrow(Registries.BLOCK)
             .filterElements(block -> block instanceof Fallable || block instanceof FallingBlock)
@@ -44,10 +46,17 @@ public class BlockTagProvider extends IntrinsicHolderTagsProvider<Block>
             .listElementIds()
             .forEach(weakSolidTag::add);
 
-        this.tag(ModTags.UNSUITABLE_SOLID_FOR_PLACEHOLDER).addTag(BlockTags.LEAVES);
+        builder(ModTags.UNSUITABLE_SOLID_FOR_PLACEHOLDER).forceAddTag(BlockTags.LEAVES);
 
-        this.tag(ModTags.GOOD_SOLID_FOR_PLACEHOLDER).add(Blocks.FARMLAND);
+        builder(ModTags.GOOD_SOLID_FOR_PLACEHOLDER).add(Blocks.FARMLAND.builtInRegistryHolder().key());
 
-        this.tag(ModTags.BLUEPRINT_BLACKLIST);
+        builder(ModTags.BLUEPRINT_BLACKLIST);
+    }
+
+    @Override
+    @NotNull
+    public String getName()
+    {
+        return "Structurize Block Tags";
     }
 }

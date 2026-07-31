@@ -261,8 +261,210 @@ _(пусто — заполняется по ходу порта)_
 | Фаза | Что | Статус |
 |---|---|---|
 | 0 | Тулчейн, `/opt/mc-src`, jar DO, каркас `26.2/` | **готово** |
-| 1 | Агент A — фундамент | в работе |
-| 2 | Агенты B1, B2, D параллельно | не начата |
+| 1 | Агент A — фундамент | **готово** — зона A чиста, 15 оставшихся ошибок все внешние |
+| 2 | Агенты B1, B2, D параллельно | готова к старту |
 | 3 | Интеграция, `runServer` | не начата |
 | 4 | Агент C — GUI, после BlockUI | не начата |
 | 5 | Проверка рендера заказчиком на живом клиенте | не начата |
+
+---
+
+# Наследие фазы 1 — обязательно к прочтению агентам B1, B2, D
+
+Агент A закрыл фундамент. `compileJava` по всему дереву даёт **1030** уникальных ошибок;
+в зоне A их **15**, и все до одной — `cannot find symbol` на классы B1/B2/D, то есть
+исчезнут сами, когда вы отработаете:
+
+| Файл:строка | Чего не хватает | Кто чинит |
+|---|---|---|
+| `Structurize.java:61,62` | `LifecycleSubscriber.register()`, `EventSubscriber.register()` | B1 |
+| `Structurize.java:64,65,66` | `ServerStructurePackLoader.register()`, `ServerFutureProcessor.register()`, `ServerPreviewDistributor.init()` | B2 |
+| `StructurizeClient.java:29,30` | `ClientLifecycleSubscriber.register()`, `ClientEventSubscriber.register()` | B1 |
+| `StructurizeClient.java:32,33` | `ClientStructurePackLoader.register()`, `ClientFutureProcessor.register()` | B2 |
+| `StructurizeClient.java:35` | `ModKeyMappings.init()` | D |
+| `config/ClientConfiguration.java:55` | `SyncSettingsToServer.sendToServer()` | B1 |
+| `items/ItemScanTool.java:186,349,461` | `SaveScanMessage/ShowScanMessage.sendToPlayer(...)` | B1 |
+| `items/ItemTagSubstitution.java:77` | `AbsorbBlockMessage.sendToServer()` | B1 |
+
+Фильтр ошибок своей зоны (в логе Gradle каждая ошибка дублируется — считать уникальные):
+```sh
+grep -oE '/com/ldtteam/structurize/(<ваши пакеты>)/[^:]*:[0-9]+: error' /tmp/errors.txt | sort -u
+```
+
+## Что изменилось против плана
+
+1. **Временных `exclude` нет и не будет.** Замерено: транзитивное замыкание зоны A требует
+   103 из 138 чужих файлов, а обратное замыкание вырезает 24 из 55 файлов самой зоны A.
+   Граф Structurize по пакетам не режется. Сигнал по зоне снимается фильтром лога (выше).
+2. **Маска C9 изменена.** Вместо `**/client/gui/*.java` стоят две префиксные маски
+   `**/client/gui/Window*.java` и `**/client/gui/Abstract*.java` — потому что
+   `client/gui/GuiStubs.java` обязан остаться в сборке. Исключены те же 13 файлов.
+3. **`modImplementation` в Loom 1.17 / 26.2 не существует** — игра неообфусцирована,
+   ремапить нечего. DO подключён как `implementation files("libs/…")`; Fabric Loader
+   находит мод по `fabric.mod.json` на classpath. Подробности — `FINDINGS-A.md`.
+4. **AccessTransformer перенесён в AccessWidener** — `src/main/resources/structurize.accesswidener`,
+   заголовок `official`, разделитель — табуляция. Живыми оказались 8 строк из 13; мёртвые
+   (`RenderStateShard`, `GlStateManager`, два поля `ChunkPalettedStorageFix`) выписаны
+   комментарием внутри файла. **Loom валит сборку на несуществующем члене**, поэтому
+   `build.gradle` и `.accesswidener` по-прежнему трогает только A/оркестратор (C4).
+
+## API `DomumCompat` — для B2
+
+`com.ldtteam.structurize.compat.DomumCompat`, всё статическое. **Ни один тип DO наружу не течёт** —
+прямые импорты `com.ldtteam.domumornamentum.*` из зоны B2 надо убрать полностью.
+
+```java
+public static final String TEXTURE_DATA_TAG;           // = do.Constants.BLOCK_ENTITY_TEXTURE_DATA ("textureData")
+public static final String LEGACY_TEXTURE_DATA_TAG;    // "originalTextureData"
+
+public static boolean isLoaded();
+
+// блоки
+public static boolean isMateriallyTexturedBlock(BlockState state);
+public static boolean isMateriallyTexturedDoor(BlockState state);
+public static boolean isPillarBlock(BlockState state);
+
+// блок-энтити
+public static boolean isMateriallyTexturedBlockEntity(@Nullable BlockEntity be);
+public static boolean hasTextureData(@Nullable BlockEntity be);
+public static boolean textureDataMatches(@Nullable BlockEntity be, @Nullable CompoundTag serializedData);
+
+// предметы
+public static ItemStack getMaterializedItemStack(@Nullable BlockEntity be, HolderLookup.Provider provider);
+
+// датаген (использует A)
+public static BlockEntityType<BlockEntity> materiallyTexturedBlockEntityType();
+```
+
+Соответствие call-site'ам:
+
+| Было | Стало |
+|---|---|
+| `util/BlockUtils.java:351` | `isMateriallyTexturedBlockEntity(worldEntity) && tileEntityData.contains(TEXTURE_DATA_TAG)`, затем `textureDataMatches(worldEntity, tileEntityData)` |
+| `util/BlockUtils.java:357` | `isMateriallyTexturedBlockEntity(worldEntity)` |
+| `DoBlockPlacementHandler:47` | `isMateriallyTexturedBlock` |
+| `DoBlockPlacementHandler:62` | `isPillarBlock` |
+| `DoBlockPlacementHandler:133-148` (весь `compareBEData`) | `textureDataMatches(tuple.getA(), tuple.getB())` — метод сам понимает оба имени тега |
+| `DoBlockPlacementHandler:171` | `getMaterializedItemStack` |
+| `DoDoorBlockPlacementHandler:35` | `isMateriallyTexturedDoor` |
+| `DoDoorBlockPlacementHandler:91` | `getMaterializedItemStack` |
+
+## API `GuiStubs` — для B1 и D
+
+`com.ldtteam.structurize.client.gui.GuiStubs`, всё статическое, класс клиентский.
+
+```java
+public static void openBuildToolWindow(@Nullable BlockPos pos, int groundstyle, HolderLookup.Provider provider);
+public static void openScanToolWindow(ScanToolData data);
+public static void openShapeToolWindow(@Nullable BlockPos pos, HolderLookup.Provider provider);
+public static void openTagToolWindow(String currentTag, BlockPos anchorPos, Level level, ItemStack stack);
+public static void setLastOperations(List<com.ldtteam.structurize.compat.util.Tuple<String, Integer>> operations);
+public static List<com.ldtteam.structurize.compat.util.Tuple<String, Integer>> getLastOperations();
+public static boolean isBuildToolScreenOpen();                  // был instanceof BOScreen + WindowExtendedBuildTool
+public static void clearBuildToolStaticData();                  // был WindowExtendedBuildTool.clearStaticData()
+public static boolean isBlueprintManipulationScreenOpen();      // был BOScreen + AbstractBlueprintManipulationWindow
+public static boolean isAnyBlockUiScreenOpen();                 // был instanceof BOScreen
+```
+
+- **B1** — `network/messages/OperationHistoryMessage.java:54` → `setLastOperations(operationIDs)`;
+  `event/ClientEventSubscriber.java:39` → `isBuildToolScreenOpen()`, `:171` → `clearBuildToolStaticData()`.
+- **D** — `client/ModKeyMappings.java:25` → `isBlueprintManipulationScreenOpen()`.
+- Четыре предмета зоны A уже переключены.
+- `Tuple` — **наш** `compat/util/Tuple`, не `net.minecraft.util.Tuple` (в 26.2 его нет).
+
+## Что реализовано в `compat/**`
+
+`com.ldtteam.structurize.compat.common.*` — реализация C8, все 11 типов:
+
+| Тип | Статус |
+|---|---|
+| `network.PlayMessageType` | полностью — `forServer/forClient/forBothSides`, `register()`, `registerClientReceivers()`, `payloadType()`, `id()` |
+| `network.AbstractPlayMessage` | полностью — `CustomPacketPayload`, `toBytes`, `onClientExecute`/`onServerExecute`, `sendToServer/sendToPlayer/sendToAllClients` |
+| `network.AbstractServerPlayMessage` | полностью — абстрактный `onExecute(PlayMessageContext, ServerPlayer)` |
+| `network.AbstractClientPlayMessage` | полностью — абстрактный `onExecute(PlayMessageContext, Player)` |
+| `config.AbstractConfiguration` | полностью — `createCategory/swapToCategory/finishCategory`, `defineBoolean/Integer/Double/String/Enum`, оба `addWatcher` |
+| `config.Configurations` | **деградировано** — JSON в `config/structurize-{client,server}.json`, но серверный конфиг не синхронизируется на клиент (PORT-GAPS, деградация 2) |
+| `codec.Codecs` | полностью — `forEnum(Class<E>)`, формат совпадает |
+| `language.LanguageHandler` | полностью — `loadLangPath`, `setMClanguageLoaded`, `translateKey`, `format` |
+| `util.BlockToItemHelper` | полностью — `getItemStack(state, be, player)`, `getItem(state)` |
+| `fakelevel.IFakeLevelBlockGetter` | полностью — `getBlockState`, `getBlockEntity`, `getHeight`, `describeSelfInCrashReport`, `getRawBlockStateFunction` |
+| `fakelevel.IFakeLevelLightProvider` (+`ConfigBasedLightProvider`) | **деградировано** — `getShade` выброшен, в 26.2 такого API нет (PORT-GAPS, деградация 3) |
+| `fakelevel.FakeLevel<T>` | полностью — `extends Level`, 29 абстрактных методов, `getLevelSource/setLevelSource/setWorldPos/setBlockEntities/setEntities/setRealLevel` |
+| `fakelevel.SingleBlockFakeLevel` (+`SidedSingleBlockFakeLevel`) | полностью — `withFakeLevelContext`, `useFakeLevelContext`, `getLevelSource().blockEntity`, `SidedSingleBlockFakeLevel.get(level)` |
+
+Сверх C8 добавлено (без этого зона B2 не компилируется):
+
+| Тип | Зачем |
+|---|---|
+| `compat.util.Tuple<A,B>` | замена удалённого `net.minecraft.util.Tuple` — нужна 14 файлам |
+| `compat.itemhandler.IItemHandler` / `InvWrapper` / `ItemHandlers` | замена capability-API NeoForge. **Деградировано**, PORT-GAPS деградация 1 |
+| `compat.common.network.PlayMessageContext` | замена `IPayloadContext` |
+| `compat.common.network.NetworkContext` / `ClientMessageSender` | служебные |
+| `compat.common.config.ModConfigSpec` | замена `net.neoforged.neoforge.common.ModConfigSpec` (`Builder`, `ConfigValue`, `BooleanValue`, `IntValue`, `DoubleValue`, `EnumValue`) |
+
+## Обязательно к исполнению — B1 (сеть, события, команды)
+
+1. `event/LifecycleSubscriber` — добавить `public static void register()` **без аргументов**,
+   зовётся из `Structurize.onInitialize()`. Внутри: `XxxMessage.TYPE.register()` для всех
+   25 сообщений + `ServerLifecycleEvents.SERVER_STARTING` → `ServerStructurePackLoader.onServerStarting()`.
+   `PayloadRegistrar` больше не передаётся.
+2. `event/EventSubscriber` — `public static void register()`.
+3. `event/ClientLifecycleSubscriber`, `event/ClientEventSubscriber` — `public static void register()`,
+   зовутся из `StructurizeClient`. `LanguageHandler.setMClanguageLoaded()` перенести
+   в `ClientLifecycleSubscriber.register()`.
+4. Все 25 сообщений: `com.ldtteam.common.network.*` → `com.ldtteam.structurize.compat.common.network.*`;
+   `net.neoforged.neoforge.network.handling.IPayloadContext` → `…compat.common.network.PlayMessageContext`
+   (и тип параметра тоже). Всё остальное — конструкторы `(buf, type)`, `toBytes`, `onExecute`,
+   `sendToServer/sendToPlayer/sendToAllClients`, `PlayMessageType.forServer/forClient/forBothSides` —
+   **без изменений**.
+5. `net.minecraft.util.Tuple` → `compat.util.Tuple` (`OperationHistoryMessage`, `commands/AbstractCommand`).
+6. `ClientEventSubscriber` и `OperationHistoryMessage` — через `GuiStubs`.
+
+## Обязательно к исполнению — B2 (логика мира)
+
+1. `storage/ServerStructurePackLoader`, `storage/ServerFutureProcessor`,
+   `storage/ClientStructurePackLoader`, `storage/ClientFutureProcessor` — `public static void register()`.
+2. `storage/rendering/ServerPreviewDistributor` — `public static void init()`
+   (имя `register` занято перегрузкой `register(ServerPlayer, boolean)`).
+3. `blueprints/v1/Blueprint`, `util/BlockUtils`: `com.ldtteam.common.fakelevel.IFakeLevelBlockGetter`
+   и `com.ldtteam.common.util.BlockToItemHelper` → `com.ldtteam.structurize.compat.common.*`.
+   `Blueprint` обязан реализовать `describeSelfInCrashReport(CrashReportCategory)`, `getHeight()`,
+   `getBlockState`, `getBlockEntity` — они уже есть.
+4. `util/InventoryUtils`, `placement/structure/IStructureHandler`,
+   `placement/structure/CreativeStructureHandler`: `net.neoforged.neoforge.items.IItemHandler`
+   → `com.ldtteam.structurize.compat.itemhandler.IItemHandler`
+   (`getSlots/getStackInSlot/insertItem/extractItem` совпадают 1:1).
+5. `net.minecraft.util.Tuple` → `compat.util.Tuple` (6 файлов в зоне B2).
+6. DO — **только** через `DomumCompat`; прямые импорты `com.ldtteam.domumornamentum.*` убрать.
+7. `BlockUtils.canBlockSurviveWithoutSupport` используется в `datagen/BlockTagProvider` зоны A —
+   сигнатуру, совместимую с `Predicate<Holder<Block>>`, не менять
+   (`filterElements(BlockUtils::canBlockSurviveWithoutSupport)`).
+8. AccessWidener уже даёт `BlockBehaviour.hasCollision`, `NoiseBasedChunkGenerator.createNoiseChunk`,
+   `SurfaceRules$Context` (+`<init>`, `updateXZ`, `updateY(IIII)` — **четыре** аргумента, было шесть),
+   `SurfaceRules$SurfaceRule`. Нужно что-то ещё — писать оркестратору;
+   `build.gradle` и `.accesswidener` трогать нельзя (C4).
+9. `util/ScanToolData` — от неё зависят `ModDataComponents` зоны A и `GuiStubs`;
+   `ScanToolData.CODEC` / `STREAM_CODEC` / `EMPTY` сохранить.
+
+## Обязательно к исполнению — D (рендер)
+
+1. `client/ModKeyMappings` — `public static void init()` (**не** `register()`),
+   зовётся из `StructurizeClient`.
+2. `client/ModKeyMappings:25` → `GuiStubs.isBlueprintManipulationScreenOpen()`.
+3. `client/fakelevel/BlueprintBlockAccess` — импорты на
+   `com.ldtteam.structurize.compat.common.fakelevel.*`. Доступны: конструктор
+   `FakeLevel(T, IFakeLevelLightProvider, Level realLevel, Scoreboard, boolean supportsBlockEntities)`,
+   поля `protected worldPos`, `protected levelSource`, методы
+   `getLevelSource/setLevelSource/setWorldPos/setBlockEntities/setEntities/setRealLevel/getRealLevel`.
+   `levelSource.getRawBlockStateFunction()` на месте.
+4. `client/TagSubstitutionRenderer` — `SingleBlockFakeLevel(realLevel)`,
+   `withFakeLevelContext(state, be, realLevel, consumer)`, `getLevelSource().blockEntity`
+   (публичное поле). `getModelData()` на блок-энтити — NeoForge, чинить отдельно.
+5. AccessWidener даёт `Frustum.cubeInFrustum(DDDDDD)` — **возвращает `int`, а не `boolean`** (26.2),
+   и `Camera.setPosition(Vec3)`. `RenderStateShard` и `GlStateManager` в 26.2 отсутствуют вовсе:
+   `util/WorldRenderMacros` и `client/BlueprintRenderer` придётся переписывать на render pipelines,
+   расширением доступа тут не обойтись. Разобранный по шагам образец этой же миграции —
+   `/workspace/domum-ornamentum/26.2/PORT-GAPS.md`, строки 2, 4, 10, 11, 12.
+6. Клиентский тик/рендер/кейбинды регистрировать только из `StructurizeClient`; из общего кода
+   клиентские классы не трогать (`ClientConfiguration` уже переведён на ленивую ссылку
+   на `BlueprintHandler`).

@@ -17,6 +17,8 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.level.storage.TagValueOutput;
 import org.jetbrains.annotations.Nullable;
 import java.util.Optional;
 import java.util.function.UnaryOperator;
@@ -59,7 +61,24 @@ public record CapturedBlock(BlockState blockState, Optional<CompoundTag> seriali
         final HolderLookup.Provider provider,
         final ItemStack itemStack)
     {
-        this(blockState, blockEntity == null ? Optional.empty() : Optional.of(blockEntity.saveWithId(provider)), itemStack);
+        this(blockState, blockEntity == null ? Optional.empty() : Optional.of(saveWithId(blockEntity, provider)), itemStack);
+    }
+
+    /**
+     * 26.2: {@code BlockEntity#saveWithId(HolderLookup.Provider)} returning a {@link CompoundTag} is gone;
+     * only {@code saveWithId(ValueOutput)} remains
+     * (/opt/mc-src/net/minecraft/world/level/block/entity/BlockEntity.java:125). This rebuilds the tag the
+     * way vanilla does it in {@code saveWithFullMetadata(HolderLookup.Provider)}, minus the x/y/z metadata.
+     *
+     * @param blockEntity the block entity to serialise.
+     * @param provider    registry access.
+     * @return the block entity tag, with its "id" entry.
+     */
+    private static CompoundTag saveWithId(final BlockEntity blockEntity, final HolderLookup.Provider provider)
+    {
+        final TagValueOutput output = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, provider);
+        blockEntity.saveWithId(output);
+        return output.buildResult();
     }
 
     /**

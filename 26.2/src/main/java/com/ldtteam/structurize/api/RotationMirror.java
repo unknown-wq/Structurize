@@ -1,6 +1,6 @@
 package com.ldtteam.structurize.api;
 
-import com.ldtteam.common.codec.Codecs;
+import com.ldtteam.structurize.compat.common.codec.Codecs;
 import com.ldtteam.structurize.blueprints.FacingFixer;
 import com.mojang.serialization.Codec;
 import io.netty.buffer.ByteBuf;
@@ -211,7 +211,9 @@ public enum RotationMirror
         {
             blockState = FacingFixer.fixMirroredFacing(blockState.mirror(mirror), blockState);
         }
-        return blockState.rotate(level, pos, rotation);
+        // 26.2: BlockState#rotate(LevelAccessor, BlockPos, Rotation) was a NeoForge extension; vanilla only
+        // has rotate(Rotation) (/opt/mc-src/net/minecraft/world/level/block/state/BlockBehaviour.java:600)
+        return blockState.rotate(rotation);
     }
 
     /**

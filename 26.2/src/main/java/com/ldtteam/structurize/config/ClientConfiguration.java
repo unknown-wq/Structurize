@@ -1,13 +1,18 @@
 package com.ldtteam.structurize.config;
 
-import com.ldtteam.common.config.AbstractConfiguration;
+import com.ldtteam.structurize.compat.common.config.AbstractConfiguration;
 import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.client.BlueprintHandler;
 import com.ldtteam.structurize.network.messages.SyncSettingsToServer;
 import com.ldtteam.structurize.storage.rendering.RenderingCache;
 import com.ldtteam.structurize.storage.rendering.types.BlueprintPreviewData;
-import io.netty.util.internal.shaded.org.jctools.queues.MessagePassingQueue.Consumer;
-import net.neoforged.neoforge.common.ModConfigSpec.*;
+import com.ldtteam.structurize.compat.common.config.ModConfigSpec.BooleanValue;
+import com.ldtteam.structurize.compat.common.config.ModConfigSpec.Builder;
+import com.ldtteam.structurize.compat.common.config.ModConfigSpec.ConfigValue;
+import com.ldtteam.structurize.compat.common.config.ModConfigSpec.DoubleValue;
+import com.ldtteam.structurize.compat.common.config.ModConfigSpec.IntValue;
+
+import java.util.function.Consumer;
 
 /**
  * Mod client configuration.
@@ -43,7 +48,8 @@ public class ClientConfiguration extends AbstractConfiguration
         rendererLightLevel = defineInteger("light_level", 15, -1, 15);
         rendererTransparency = defineDouble("transparency", -1, -1, 1);
 
-        addWatcher(BlueprintHandler.getInstance()::clearCache, renderPlaceholdersNice, rendererLightLevel);
+        // lazy on purpose: BlueprintHandler is a client class and must not be loaded on a dedicated server
+        addWatcher(() -> BlueprintHandler.getInstance().clearCache(), renderPlaceholdersNice, rendererLightLevel);
         addWatcher(displayShared, (oldValue, isSharingEnabled) -> {
             // notify server
             new SyncSettingsToServer().sendToServer();

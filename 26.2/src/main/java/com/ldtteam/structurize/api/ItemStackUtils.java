@@ -1,8 +1,9 @@
 package com.ldtteam.structurize.api;
 
-import com.ldtteam.common.fakelevel.SingleBlockFakeLevel.SidedSingleBlockFakeLevel;
+import com.ldtteam.structurize.compat.common.fakelevel.SingleBlockFakeLevel.SidedSingleBlockFakeLevel;
+import com.ldtteam.structurize.compat.itemhandler.IItemHandler;
+import com.ldtteam.structurize.compat.itemhandler.ItemHandlers;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.component.DataComponents;
@@ -17,14 +18,9 @@ import net.minecraft.world.item.SpawnEggItem;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.EntityHitResult;
-import net.neoforged.neoforge.capabilities.Capabilities.ItemHandler;
-import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.items.wrapper.InvWrapper;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -62,7 +58,7 @@ public final class ItemStackUtils
             return List.of();
         }
 
-        final BlockPos blockpos = new BlockPos(compound.getInt("x"), compound.getInt("y"), compound.getInt("z"));
+        final BlockPos blockpos = new BlockPos(compound.getIntOr("x", 0), compound.getIntOr("y", 0), compound.getIntOr("z", 0));
         final BlockEntity tileEntity = BlockEntity.loadStatic(blockpos, state, compound, level.registryAccess());
         if (tileEntity == null)
         {
@@ -93,7 +89,7 @@ public final class ItemStackUtils
             if (!ItemStackUtils.isEmpty(stack))
             {
                 sink.accept(stack);
-                    deepExtractItemHandler(stack.getCapability(ItemHandler.ITEM), sink);
+                deepExtractItemHandler(ItemHandlers.ofStack(stack), sink);
             }
         }
     }
@@ -107,39 +103,21 @@ public final class ItemStackUtils
      */
     public static Set<IItemHandler> getItemHandlersFromProvider(@Nullable final BlockEntity provider, final BlockPos pos, final BlockState state)
     {
-        if (provider == null)
-        {
-            return Set.of();
-        }
-        if (provider instanceof final IItemHandler itemHandler)
-        {
-            // be is itemHandler itself = easy
-            return Set.of(itemHandler);
-        }
-        if (provider instanceof final Container container)
-        {
-            // be is vanilla container = itemHandler cap might return SidedInvWrapper with partial inv view
-            return Set.of(new InvWrapper(container));
-        }
-
-        final IItemHandler unsidedItemHandler = provider.getLevel().getCapability(ItemHandler.BLOCK, pos, state, provider, null);
-        if (unsidedItemHandler != null)
-        {
-            // weak assumption of unsided being partial view only
-            return Set.of(unsidedItemHandler);
-        }
-
-        final Set<IItemHandler> handlerSet = new HashSet<>();
-        for (final Direction side : Direction.values())
-        {
-            final IItemHandler cap = provider.getLevel().getCapability(ItemHandler.BLOCK, pos, state, provider, side);
-            if (cap != null)
-            {
-                handlerSet.add(cap);
-            }
-        }
-        // weakest assumption of sided itemHandler having disjoint sides
-        return handlerSet;
+        // TODO(port-26.2): DEGRADED — NeoForge capability lookups replaced by the vanilla Container view.
+        // Original:
+        /*
+         *  final IItemHandler unsidedItemHandler = provider.getLevel().getCapability(ItemHandler.BLOCK, pos, state, provider, null);
+         *  if (unsidedItemHandler != null) { return Set.of(unsidedItemHandler); }
+         *  final Set<IItemHandler> handlerSet = new HashSet<>();
+         *  for (final Direction side : Direction.values())
+         *  {
+         *      final IItemHandler cap = provider.getLevel().getCapability(ItemHandler.BLOCK, pos, state, provider, side);
+         *      if (cap != null) { handlerSet.add(cap); }
+         *  }
+         *  return handlerSet;
+         */
+        final IItemHandler handler = ItemHandlers.of(provider);
+        return handler == null ? Set.of() : Set.of(handler);
     }
 
     /**
@@ -225,54 +203,26 @@ public final class ItemStackUtils
 
         final List<ItemStack> entityContent = new ArrayList<>();
 
-        IItemHandler itemHandler = null;
-        if (entity instanceof final IItemHandler iitemHandler)
-        {
-            // entity is itemHandler itself = easy
-            itemHandler = iitemHandler;
-        }
-        else if (entity instanceof final Container container)
-        {
-            // entity is vanilla container = itemHandler cap might return SidedInvWrapper with partial inv view
-            itemHandler = new InvWrapper(container);
-        }
-        if (itemHandler == null)
-        {
-            itemHandler = entity.getCapability(ItemHandler.ENTITY);
-        }
-        if (itemHandler == null)
-        {
-            // weak assumption of unsided being partial view only
-            itemHandler = entity.getCapability(ItemHandler.ENTITY_AUTOMATION, null);
-        }
+        // TODO(port-26.2): DEGRADED — NeoForge Capabilities.ItemHandler.ENTITY / ENTITY_AUTOMATION lookups
+        // (incl. the per-side loop) have no Fabric equivalent; only vanilla Container entities are seen.
+        final IItemHandler itemHandler = ItemHandlers.of(entity);
 
         if (itemHandler != null)
         {
             deepExtractItemHandler(itemHandler, entityContent::add);
         }
-        // some vanilla entities "have inventory" but not forge cap yet
+        // some vanilla entities "have inventory" but are not a Container
         else if (entity instanceof final ItemFrame itemFrame)
         {
             final ItemStack stack = itemFrame.getItem();
             entityContent.add(stack);
-            deepExtractItemHandler(stack.getCapability(ItemHandler.ITEM), entityContent::add);
+            deepExtractItemHandler(ItemHandlers.ofStack(stack), entityContent::add);
         }
         else if (entity instanceof final ItemEntity itemEntity)
         {
             final ItemStack stack = itemEntity.getItem();
             entityContent.add(stack);
-            deepExtractItemHandler(stack.getCapability(ItemHandler.ITEM), entityContent::add);
-        }
-        else // sided item handler
-        {
-            for (final Direction side : Direction.values())
-            {
-                final IItemHandler cap = entity.getCapability(ItemHandler.ENTITY_AUTOMATION, side);
-                if (cap != null)
-                {
-                    deepExtractItemHandler(cap, entityContent::add);
-                }
-            }
+            deepExtractItemHandler(ItemHandlers.ofStack(stack), entityContent::add);
         }
 
         return entityContent;
@@ -286,9 +236,13 @@ public final class ItemStackUtils
     {
         if (entity instanceof final ItemFrame itemFrame)
         {
-            return itemFrame.getFrameItemStack();
+            // 26.2: ItemFrame#getFrameItemStack is protected and the mod has no mixins; getItem() is the
+            // public accessor for the framed stack and getPickResult() gives the frame item itself.
+            return itemFrame.getPickResult();
         }
-        return entity.getPickedResult(new EntityHitResult(entity));
+        // 26.2: Entity#getPickedResult(HitResult) is a NeoForge patch; vanilla has Entity#getPickResult()
+        // (/opt/mc-src/net/minecraft/world/entity/Entity.java:3852)
+        return entity.getPickResult();
     }
 
     /**

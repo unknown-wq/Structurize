@@ -3,7 +3,6 @@ package com.ldtteam.structurize.api;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.player.Player;
 import org.jetbrains.annotations.NotNull;
 
@@ -30,7 +29,10 @@ public final class Utils
      */
     public static void playSuccessSound(@NotNull final Player player)
     {
-        player.playNotifySound(SoundEvents.NOTE_BLOCK_BELL.value(), SoundSource.NEUTRAL, 1.0f, 1.0f);
+        // 26.2: Player#playNotifySound(SoundEvent, SoundSource, float, float) is gone (0 hits in /opt/mc-src);
+        // the remaining public API is Player#playSound(SoundEvent, float, float)
+        // (/opt/mc-src/net/minecraft/world/entity/player/Player.java:397)
+        player.playSound(SoundEvents.NOTE_BLOCK_BELL.value(), 1.0f, 1.0f);
     }
 
     /**
@@ -39,7 +41,7 @@ public final class Utils
      */
     public static void playErrorSound(@NotNull final Player player)
     {
-        player.playNotifySound(SoundEvents.NOTE_BLOCK_DIDGERIDOO.value(), SoundSource.NEUTRAL, 1.0f, 0.3f);
+        player.playSound(SoundEvents.NOTE_BLOCK_DIDGERIDOO.value(), 1.0f, 0.3f);
     }
 
     /**
@@ -63,7 +65,8 @@ public final class Utils
      */
     public static boolean nbtContains(final CompoundTag originTag, final CompoundTag compareTag)
     {
-        for (final String childTagKey : originTag.getAllKeys())
+        // 26.2: CompoundTag#getAllKeys renamed to keySet() (/opt/mc-src/net/minecraft/nbt/CompoundTag.java:193)
+        for (final String childTagKey : originTag.keySet())
         {
             final Tag originChildTag = originTag.get(childTagKey);
             final Tag compareChildTag = compareTag.get(childTagKey);

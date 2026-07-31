@@ -1,43 +1,58 @@
 package com.ldtteam.structurize.datagen;
 
-import com.ldtteam.domumornamentum.entity.block.ModBlockEntityTypes;
-import com.ldtteam.domumornamentum.util.Constants;
+import com.ldtteam.structurize.compat.DomumCompat;
 import com.ldtteam.structurize.tag.ModTags;
+import net.fabricmc.fabric.api.datagen.v1.FabricPackOutput;
+import net.fabricmc.fabric.api.datagen.v1.provider.FabricTagsProvider;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.data.PackOutput;
-import net.minecraft.data.tags.IntrinsicHolderTagsProvider;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.world.level.block.entity.BlockEntityTypeIds;
+import net.minecraft.data.tags.TagAppender;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.neoforged.neoforge.common.data.ExistingFileHelper;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Datagen provider for Block Entity Tags
+ * Datagen provider for Block Entity Tags.
+ *
+ * <p>Port note: NeoForge's {@code IntrinsicHolderTagsProvider} plus {@code ExistingFileHelper} became
+ * {@link FabricTagsProvider}; Fabric ships no block-entity-type flavour, so the registry key is passed
+ * explicitly. 26.2 also split id storage out of the registry objects, so {@code TagAppender#add} takes a
+ * {@link ResourceKey} — see /opt/mc-src/net/minecraft/data/tags/TagAppender.java:37.</p>
  */
-public class BlockEntityTagProvider extends IntrinsicHolderTagsProvider<BlockEntityType<?>>
+public class BlockEntityTagProvider extends FabricTagsProvider<BlockEntityType<?>>
 {
-
-    public BlockEntityTagProvider(
-      final PackOutput output,
-      final ResourceKey<? extends Registry<BlockEntityType<?>>> key,
-      final CompletableFuture<HolderLookup.Provider> provider,
-      @Nullable final ExistingFileHelper existingFileHelper)
+    /**
+     * @param output           the pack output.
+     * @param registriesFuture the registry lookup future.
+     */
+    public BlockEntityTagProvider(final FabricPackOutput output, final CompletableFuture<HolderLookup.Provider> registriesFuture)
     {
-        super(output, key, provider, k -> BuiltInRegistries.BLOCK_ENTITY_TYPE.getResourceKey(k).get(), Constants.MOD_ID, existingFileHelper);
+        super(output, Registries.BLOCK_ENTITY_TYPE, registriesFuture);
     }
 
     @Override
-    protected void addTags(HolderLookup.@NotNull Provider provider)
+    protected void addTags(final HolderLookup.@NotNull Provider provider)
     {
-        this.tag(ModTags.SUBSTITUTION_ABSORB_WHITELIST)
-          .add(BlockEntityType.CHEST)
-          .add(BlockEntityType.SIGN)
-          .add(BlockEntityType.LECTERN)
-          .add(ModBlockEntityTypes.MATERIALLY_TEXTURED.get());
+        final TagAppender<BlockEntityType<?>> tag = builder(ModTags.SUBSTITUTION_ABSORB_WHITELIST);
+        tag.add(BlockEntityTypeIds.CHEST);
+        tag.add(BlockEntityTypeIds.SIGN);
+        tag.add(BlockEntityTypeIds.LECTERN);
+        tag.add(keyOf(DomumCompat.materiallyTexturedBlockEntityType()));
+    }
+
+    private static ResourceKey<BlockEntityType<?>> keyOf(final BlockEntityType<?> type)
+    {
+        return BuiltInRegistries.BLOCK_ENTITY_TYPE.getResourceKey(type).orElseThrow();
+    }
+
+    @Override
+    @NotNull
+    public String getName()
+    {
+        return "Structurize Block Entity Tags";
     }
 }

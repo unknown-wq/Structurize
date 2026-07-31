@@ -20,9 +20,9 @@ public class ItemCaliper extends AbstractItemWithPosSelector
     /**
      * Caliper constructor. Sets max stack to 1, like other tools.
      */
-    public ItemCaliper()
+    public ItemCaliper(final Properties properties)
     {
-        super(new Properties().stacksTo(1));
+        super(properties);
     }
 
     @Override
@@ -38,7 +38,7 @@ public class ItemCaliper extends AbstractItemWithPosSelector
         final Player playerIn,
         final ItemStack itemStack)
     {
-        if (!worldIn.isClientSide)
+        if (!worldIn.isClientSide())
         {
             return InteractionResult.FAIL;
         }
@@ -68,7 +68,7 @@ public class ItemCaliper extends AbstractItemWithPosSelector
             distances.add(disZ + 1);
         }
 
-        playerIn.displayClientMessage(Component.translatable(String.format(ITEM_CALIPER_MESSAGE_XD, distances.size()),
-                distances.toArray(new Object[0])), false);
+        playerIn.sendSystemMessage(Component.translatable(String.format(ITEM_CALIPER_MESSAGE_XD, distances.size()),
+                distances.toArray(new Object[0])));
     }
 }

@@ -5,7 +5,9 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
-import net.minecraft.util.Tuple;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import com.ldtteam.structurize.compat.util.Tuple;
 import net.minecraft.core.BlockPos;
 
 import java.util.*;
@@ -82,16 +84,36 @@ public interface IBlueprintDataProviderBE
      */
     default void writeSchematicDataToNBT(final CompoundTag originalCompound)
     {
+        originalCompound.put(TAG_BLUEPRINTDATA, buildSchematicDataTag());
+    }
+
+    /**
+     * 26.2 bridge: block entities now save through {@link ValueOutput}, which has no raw {@code CompoundTag}
+     * access. The blueprint data still goes on disk as one {@code blueprintDataProvider} sub-compound, so the
+     * layout is byte-identical to 1.21.1.
+     *
+     * @param output the block entity output.
+     */
+    default void writeSchematicDataToNBT(final ValueOutput output)
+    {
+        output.store(TAG_BLUEPRINTDATA, CompoundTag.CODEC, buildSchematicDataTag());
+    }
+
+    /**
+     * @return the {@code blueprintDataProvider} sub-compound.
+     */
+    default CompoundTag buildSchematicDataTag()
+    {
         CompoundTag compoundNBT = new CompoundTag();
         compoundNBT.putString(TAG_SCHEMATIC_NAME, getSchematicName());
         BlockPosUtil.writeToNBT(compoundNBT, TAG_CORNER_ONE, getSchematicCorners().getA());
         BlockPosUtil.writeToNBT(compoundNBT, TAG_CORNER_TWO, getSchematicCorners().getB());
 
         writeMapToCompound(compoundNBT, getPositionedTags());
-        originalCompound.put(TAG_BLUEPRINTDATA, compoundNBT);
 
         compoundNBT.putString(TAG_PACK, getPackName() == null ? "" : getPackName());
         compoundNBT.putString(TAG_PATH, getBlueprintPath() == null ? "" : getBlueprintPath());
+        return compoundNBT;
     }
 
     /**
@@ -133,10 +155,26 @@ public interface IBlueprintDataProviderBE
             return;
         }
 
-        CompoundTag compoundNBT = originalCompound.getCompound(TAG_BLUEPRINTDATA);
+        applySchematicDataTag(originalCompound.getCompoundOrEmpty(TAG_BLUEPRINTDATA));
+    }
 
+    /**
+     * 26.2 bridge, see {@link #writeSchematicDataToNBT(ValueOutput)}.
+     *
+     * @param input the block entity input.
+     */
+    default void readSchematicDataFromNBT(final ValueInput input)
+    {
+        input.read(TAG_BLUEPRINTDATA, CompoundTag.CODEC).ifPresent(this::applySchematicDataTag);
+    }
+
+    /**
+     * @param compoundNBT the {@code blueprintDataProvider} sub-compound.
+     */
+    default void applySchematicDataTag(final CompoundTag compoundNBT)
+    {
         // Read schematic name
-        setSchematicName(compoundNBT.getString(TAG_SCHEMATIC_NAME));
+        setSchematicName(compoundNBT.getStringOr(TAG_SCHEMATIC_NAME, ""));
 
         // Read corners
         final BlockPos corner1 = BlockPosUtil.readFromNBT(compoundNBT, TAG_CORNER_ONE);
@@ -161,7 +199,7 @@ public interface IBlueprintDataProviderBE
             return tagPosMap;
         }
 
-        final ListTag tagPosMapNBT = compoundNBT.getList(TAG_POS_TAG_MAP, Tag.TAG_COMPOUND);
+        final ListTag tagPosMapNBT = compoundNBT.getListOrEmpty(TAG_POS_TAG_MAP);
 
         for (final Tag tagPosMapEntry : tagPosMapNBT)
         {
@@ -174,7 +212,7 @@ public interface IBlueprintDataProviderBE
             final BlockPos tagPos = BlockPosUtil.readFromNBT(entry, TAG_TAG_POS);
 
             final Set<String> tagList = new HashSet<>();
-            final ListTag tagListNbt = entry.getList(TAG_TAG_NAME_LIST, Tag.TAG_COMPOUND);
+            final ListTag tagListNbt = entry.getListOrEmpty(TAG_TAG_NAME_LIST);
 
             for (final Tag tagEntryNBT : tagListNbt)
             {
@@ -184,7 +222,7 @@ public interface IBlueprintDataProviderBE
                 }
 
                 final CompoundTag tagEntry = ((CompoundTag) tagEntryNBT);
-                tagList.add(tagEntry.getString(TAG_TAG_NAME));
+                tagList.add(tagEntry.getStringOr(TAG_TAG_NAME, ""));
             }
 
             tagPosMap.put(tagPos, new ArrayList<>(tagList));

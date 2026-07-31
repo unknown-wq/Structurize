@@ -1,40 +1,50 @@
 package com.ldtteam.structurize.datagen;
 
-import com.ldtteam.structurize.api.constants.Constants;
 import com.ldtteam.structurize.tag.ModTags;
+import net.fabricmc.fabric.api.datagen.v1.FabricPackOutput;
+import net.fabricmc.fabric.api.datagen.v1.provider.FabricTagsProvider;
 import net.minecraft.core.HolderLookup.Provider;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.Registry;
-import net.minecraft.data.PackOutput;
-import net.minecraft.data.tags.IntrinsicHolderTagsProvider;
-import net.minecraft.resources.ResourceKey;
+import net.minecraft.data.tags.TagAppender;
 import net.minecraft.world.entity.EntityType;
-import net.neoforged.neoforge.common.data.ExistingFileHelper;
-import org.jetbrains.annotations.Nullable;
+import net.minecraft.world.entity.EntityTypeIds;
+import org.jetbrains.annotations.NotNull;
+
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Datagen provider for Entity Tags
+ * Datagen provider for Entity Tags.
  */
-public class EntityTagProvider extends IntrinsicHolderTagsProvider<EntityType<?>>
+public class EntityTagProvider extends FabricTagsProvider.EntityTypeTagsProvider
 {
-    public EntityTagProvider(final PackOutput output,
-        final ResourceKey<? extends Registry<EntityType<?>>> key,
-        final CompletableFuture<Provider> future,
-        @Nullable final ExistingFileHelper existingFileHelper)
+    /**
+     * @param output           the pack output.
+     * @param registriesFuture the registry lookup future.
+     */
+    public EntityTagProvider(final FabricPackOutput output, final CompletableFuture<Provider> registriesFuture)
     {
-        super(output, key, future, k -> BuiltInRegistries.ENTITY_TYPE.getResourceKey(k).get(), Constants.MOD_ID, existingFileHelper);
+        super(output, registriesFuture);
     }
 
     @Override
     protected void addTags(final Provider provider)
     {
-        tag(ModTags.PREVIEW_TICKING_ENTITIES).add(EntityType.ARMOR_STAND)
-            .add(EntityType.END_CRYSTAL)
-            .add(EntityType.BLOCK_DISPLAY)
-            .add(EntityType.ITEM_DISPLAY)
-            .add(EntityType.TEXT_DISPLAY)
-            .add(EntityType.FURNACE_MINECART)
-            .add(EntityType.OMINOUS_ITEM_SPAWNER);
+        // 26.2 split ids out of the registry objects: the EntityType constants moved to EntityTypes and the
+        // ResourceKeys live in EntityTypeIds, which is exactly what TagAppender#add wants now
+        // (/opt/mc-src/net/minecraft/world/entity/EntityTypeIds.java:13).
+        final TagAppender<EntityType<?>> tag = builder(ModTags.PREVIEW_TICKING_ENTITIES);
+        tag.add(EntityTypeIds.ARMOR_STAND);
+        tag.add(EntityTypeIds.END_CRYSTAL);
+        tag.add(EntityTypeIds.BLOCK_DISPLAY);
+        tag.add(EntityTypeIds.ITEM_DISPLAY);
+        tag.add(EntityTypeIds.TEXT_DISPLAY);
+        tag.add(EntityTypeIds.FURNACE_MINECART);
+        tag.add(EntityTypeIds.OMINOUS_ITEM_SPAWNER);
+    }
+
+    @Override
+    @NotNull
+    public String getName()
+    {
+        return "Structurize Entity Tags";
     }
 }

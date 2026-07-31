@@ -1,0 +1,80 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+	id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+repositories {
+}
+
+fabricApi {
+	configureDataGeneration {
+		client = true
+	}
+}
+
+// Port of META-INF/accesstransformer.cfg. Header namespace is "official": 26.1+ is unobfuscated,
+// so both the header and the member paths use Mojang names.
+loom {
+	accessWidenerPath = file("src/main/resources/structurize.accesswidener")
+}
+
+// --- C9: BlockUI is parked -------------------------------------------------
+// Structurize builds every window on com.ldtteam.blockui, a separate ldtteam library whose 26.2
+// port is not available yet. The 13 files below are the only ones that touch it; they stay in the
+// tree untouched and come back in phase 4 by deleting this block.
+// client/gui/util/ItemPositionsStorage.java is deliberately NOT excluded: it has no BlockUI
+// reference and network/ + operations/ need it.
+// client/gui/GuiStubs.java is the facade that replaces them and must stay in the build, so the
+// windows are listed by their two prefixes instead of the whole package.
+sourceSets.main.java {
+	exclude "**/client/gui/Window*.java"
+	exclude "**/client/gui/Abstract*.java"
+	exclude "**/client/gui/util/InputFilters.java"
+	exclude "**/client/gui/util/ItemUtil.java"
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	// Minecraft 26.1+ is unobfuscated and Yarn is discontinued: no mappings line is needed.
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+	// Domum Ornamentum, built from /workspace/domum-ornamentum/26.2.
+	// Loom 1.17 on 26.2 does not create the mod* configurations (nothing to remap on an
+	// unobfuscated game), so this is a plain implementation dependency; Fabric Loader still
+	// discovers the mod in dev because it scans the classpath for fabric.mod.json.
+	implementation files("libs/domum_ornamentum-26.2-1.0.0.jar")
+}
+
+processResources {
+	inputs.property "version", project.version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": project.version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = "UTF-8"
+	it.options.release = 25
+	it.options.compilerArgs += ["-Xmaxerrs", "5000", "-Xmaxwarns", "0"]
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+jar {
+	from("LICENSE") {
+		rename { "${it}_${project.base.archivesName.get()}"}
+	}
+}

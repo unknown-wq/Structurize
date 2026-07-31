@@ -55,10 +55,12 @@ public final class BlockPosUtil
      */
         public static BlockPos readFromNBT(final CompoundTag compound, final String name)
     {
-        final CompoundTag coordsCompound = compound.getCompound(name);
-        final int x = coordsCompound.getInt("x");
-        final int y = coordsCompound.getInt("y");
-        final int z = coordsCompound.getInt("z");
+        // 26.2: the CompoundTag getters return Optional; the *Or / *OrEmpty variants keep the old shape
+        // (/opt/mc-src/net/minecraft/nbt/CompoundTag.java:299-371)
+        final CompoundTag coordsCompound = compound.getCompoundOrEmpty(name);
+        final int x = coordsCompound.getIntOr("x", 0);
+        final int y = coordsCompound.getIntOr("y", 0);
+        final int z = coordsCompound.getIntOr("z", 0);
         return new BlockPos(x, y, z);
     }
 
@@ -250,7 +252,7 @@ public final class BlockPosUtil
 
         for (final BlockPos start : BlockPos.betweenClosed(target, top))
         {
-            if (target.getY() < level.getMinBuildHeight()) continue;
+            if (target.getY() < level.getMinY()) continue;
 
             for (final BlockPos pos : BlockPos.spiralAround(start, 15, Direction.SOUTH, Direction.EAST))
             {

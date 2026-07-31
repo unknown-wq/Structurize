@@ -26,14 +26,19 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.NotNull;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 import java.util.Optional;
 
 public class ItemTagSubstitution extends BlockItem implements ISpecialBlockPickItem
 {
-    public ItemTagSubstitution()
+    public static Properties defaultProperties()
     {
-        super(ModBlocks.blockTagSubstitution.get(), new Properties().component(ModDataComponents.CAPTURED_BLOCK, CapturedBlock.EMPTY));
+        return new Properties().component(ModDataComponents.CAPTURED_BLOCK, CapturedBlock.EMPTY);
+    }
+
+    public ItemTagSubstitution(final Properties properties)
+    {
+        super(ModBlocks.blockTagSubstitution.get(), properties);
     }
 
     @NotNull
@@ -77,7 +82,10 @@ public class ItemTagSubstitution extends BlockItem implements ISpecialBlockPickI
     @NotNull
     private ItemStack getPickedBlock(@NotNull Player player, @NotNull BlockPos pos, @NotNull BlockState blockstate)
     {
-        return blockstate.getCloneItemStack(Minecraft.getInstance().hitResult, player.level(), pos, player);
+        // 26.2 merged the pick-block hooks into getCloneItemStack(LevelReader, BlockPos, boolean includeData)
+        // (/opt/mc-src/net/minecraft/world/level/block/state/BlockBehaviour.java:893); the HitResult / Player
+        // arguments are gone.
+        return blockstate.getCloneItemStack(player.level(), pos, true);
     }
 
     public void onAbsorbBlock(@NotNull final ServerPlayer player,
@@ -110,36 +118,30 @@ public class ItemTagSubstitution extends BlockItem implements ISpecialBlockPickI
     {
         if (blockentity == null) return true;
 
-        final HolderSet.Named<BlockEntityType<?>> tag = BuiltInRegistries.BLOCK_ENTITY_TYPE.getTag(ModTags.SUBSTITUTION_ABSORB_WHITELIST).get();
-        return tag.contains(blockentity.getType().builtInRegistryHolder());
+        // 26.2: Registry#getTag(TagKey) is gone; the Holder itself answers tag membership
+        // (/opt/mc-src/net/minecraft/core/Registry.java:137 only keeps getTagOrEmpty)
+        return blockentity.getType().builtInRegistryHolder().is(ModTags.SUBSTITUTION_ABSORB_WHITELIST);
     }
 
-    @Override
-    public Component getHighlightTip(@NotNull final ItemStack stack, @NotNull final Component displayName)
-    {
-        final ItemStack absorbed = CapturedBlock.readFromItemStack(stack).itemStack();
-        if (!absorbed.isEmpty())
-        {
-            return Component.empty()
-                    .append(super.getHighlightTip(stack, displayName))
-                    .append(Component.literal(" - ").withStyle(ChatFormatting.GRAY))
-                    .append(absorbed.getHoverName());
-        }
-
-        return super.getHighlightTip(stack, displayName);
-    }
-
-    @NotNull
-    @Override
-    public Optional<TooltipComponent> getTooltipImage(@NotNull final ItemStack stack)
-    {
-        final ItemStack absorbedItem = CapturedBlock.readFromItemStack(stack).itemStack();
-
-        if (!absorbedItem.isEmpty())
-        {
-            return Optional.of(new ItemStackTooltip(absorbedItem));
-        }
-
-        return super.getTooltipImage(stack);
-    }
+    /**
+     * TODO(port-26.2): DISABLED — {@code IItemExtension#getHighlightTip(ItemStack, Component)} is a NeoForge
+     * extension with no vanilla or Fabric API equivalent in 26.2. Effect: the hotbar name of a tag
+     * substitution holding an absorbed block no longer shows " - &lt;absorbed block&gt;".
+     * Original:
+     * <pre>
+     * &#64;Override
+     * public Component getHighlightTip(final ItemStack stack, final Component displayName)
+     * {
+     *     final ItemStack absorbed = CapturedBlock.readFromItemStack(stack).itemStack();
+     *     if (!absorbed.isEmpty())
+     *     {
+     *         return Component.empty()
+     *                 .append(super.getHighlightTip(stack, displayName))
+     *                 .append(Component.literal(" - ").withStyle(ChatFormatting.GRAY))
+     *                 .append(absorbed.getHoverName());
+     *     }
+     *     return super.getHighlightTip(stack, displayName);
+     * }
+     * </pre>
+     */
 }

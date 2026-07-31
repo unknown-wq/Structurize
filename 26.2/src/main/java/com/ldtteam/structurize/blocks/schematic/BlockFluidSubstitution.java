@@ -13,8 +13,8 @@ public class BlockFluidSubstitution extends Block
      * Constructor for the Substitution block.
      * sets the creative tab, as well as the resistance and the hardness.
      */
-    public BlockFluidSubstitution()
+    public BlockFluidSubstitution(final Properties properties)
     {
-        super(BlockSubstitution.defaultSubstitutionProperties());
+        super(properties);
     }
 }
