@@ -31,9 +31,22 @@ import java.util.Optional;
 
 public class ItemTagSubstitution extends BlockItem implements ISpecialBlockPickItem
 {
+    /**
+     * <p>Port note: {@code useBlockDescriptionPrefix()} is mandatory for a hand-registered {@link BlockItem}
+     * since 1.21.4. An item no longer borrows its {@code descriptionId} from the block it places, it takes it
+     * from its own {@link Properties}, and the default there is {@code ITEM_DESCRIPTION_ID}, i.e.
+     * {@code item.<ns>.<path>} (/opt/mc-src/net/minecraft/world/item/Item.java:382,637,654 — the id is
+     * resolved once in {@code Item#<init>} at line 135). Vanilla applies the block prefix inside
+     * {@code Items#registerBlock}; a mod that calls {@code Registry.register} itself has to say so. Without
+     * it this item asks for {@code item.structurize.blocktagsubstitution}, which no language file defines —
+     * the shipped one has {@code block.structurize.blocktagsubstitution} — and the item renders as the raw
+     * translation key with nothing in the log.</p>
+     *
+     * @return the properties for the tag anchor item, without the id.
+     */
     public static Properties defaultProperties()
     {
-        return new Properties().component(ModDataComponents.CAPTURED_BLOCK, CapturedBlock.EMPTY);
+        return new Properties().useBlockDescriptionPrefix().component(ModDataComponents.CAPTURED_BLOCK, CapturedBlock.EMPTY);
     }
 
     public ItemTagSubstitution(final Properties properties)
