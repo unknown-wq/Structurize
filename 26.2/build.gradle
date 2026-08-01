@@ -16,6 +16,29 @@ repositories {
 fabricApi {
 	configureDataGeneration {
 		client = true
+
+		// Domum Ornamentum and BlockUI come in as plain `implementation files(...)` jars, which Fabric
+		// Loader discovers as ordinary mods - including their `fabric-datagen` entrypoints. Without a modId
+		// pin, FabricDataGenHelper runs *every* mod on the classpath into *our* output directory, and each
+		// generator finishes with its own HashCache#purgeStaleAndWrite, which walks the whole output root
+		// and deletes every file its own providers did not write
+		// (/opt/mc-src/net/minecraft/data/HashCache.java:104-135). Observed before this pin: Structurize
+		// wrote its six tag files, then Domum Ornamentum's 876 files landed and wiped all six back out, so a
+		// clean run produced zero Structurize output and 876 files belonging to another mod.
+		modId = project.mod_id
+
+		// Keep the pack root the mod has always used. Loom's default is `src/main/generated`, but the
+		// checked-in output of this mod lives in `src/datagen/generated/structurize` (the layout the
+		// NeoForge parent build script used), and that is also what the 1.21.1 checkout carries, so
+		// regenerating in place keeps `git diff` meaningful against the previous version.
+		//
+		// This also fixes the shipped jar: loom adds the output directory to `sourceSets.main.resources`
+		// (FabricApiDataGeneration#configureDataGeneration, addToResources defaults to true) and excludes
+		// `.cache/**` from it. Before this line neither `src/datagen/generated` nor the checked-in
+		// `src/main/generated/resources` was a resource root that produced usable paths, so none of the six
+		// mod tags were in the jar at all - every `structurize:` block/entity tag was silently empty at
+		// runtime.
+		outputDirectory = file("src/datagen/generated/structurize")
 	}
 }
 
