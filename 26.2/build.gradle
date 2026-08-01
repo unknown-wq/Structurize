@@ -44,6 +44,11 @@ fabricApi {
 
 // Port of META-INF/accesstransformer.cfg. Header namespace is "official": 26.1+ is unobfuscated,
 // so both the header and the member paths use Mojang names.
+//
+// This is only the COMPILE half: Loom widens its own copy of the Minecraft jar so javac accepts the
+// accesses. Nothing here reaches runtime - there the loader applies the widener, and only when the
+// mod names it via "accessWidener" in fabric.mod.json. Both halves are needed; with just this one
+// `build` is green and dev runs fine while a production client dies with IllegalAccessError.
 loom {
 	accessWidenerPath = file("src/main/resources/structurize.accesswidener")
 }

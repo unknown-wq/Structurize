@@ -30,6 +30,8 @@
     ]
   },
 
+  "accessWidener": "structurize.accesswidener",
+
   "depends": {
     "fabricloader": ">=0.19.3",
     "fabric-api": "*",
