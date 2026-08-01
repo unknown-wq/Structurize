@@ -60,6 +60,31 @@ public class Blueprint implements IFakeLevelBlockGetter
     private static final String ENTITY_POS = "Pos";
 
     /**
+     * Serialised id of {@link ModBlockEntities#TAG_SUBSTITUTION}, compared against the {@code id} of every block
+     * entity tag the rotation loop walks.
+     * <p>
+     * 1.21.1 read this off the NeoForge {@code DeferredHolder} ({@code TAG_SUBSTITUTION.getId()}), which was a plain
+     * field. 26.2 has no holder, so the port reached for the reverse lookup
+     * {@code BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(...)} plus a {@code toString()} - and left it <i>inside</i>
+     * the loop, so a blueprint rotation paid one registry reverse-map lookup and one string build per block entity in
+     * the blueprint. Resolved lazily rather than in a static initialiser because this class is touched before
+     * {@code ModBlockEntities}' static block has run.
+     */
+    private static String tagSubstitutionId = null;
+
+    /**
+     * @return the {@code id} value a serialised tag-substitution block entity carries
+     */
+    private static String tagSubstitutionId()
+    {
+        if (tagSubstitutionId == null)
+        {
+            tagSubstitutionId = BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(ModBlockEntities.TAG_SUBSTITUTION.get()).toString();
+        }
+        return tagSubstitutionId;
+    }
+
+    /**
      * The list of required mods.
      */
     private final List<String> requiredMods;
@@ -727,8 +752,7 @@ public class Blueprint implements IFakeLevelBlockGetter
                         //       Level with blockstate and entity and the former requires reinflating everything
                         //       before we can test whether it's rotatable or not, neither of which is ideal.  So
                         //       for now this is the minimal requirement.
-                        if (compound.getStringOr("id", "")
-                              .equals(BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(ModBlockEntities.TAG_SUBSTITUTION.get()).toString()))
+                        if (compound.getStringOr("id", "").equals(tagSubstitutionId()))
                         {
                             CapturedBlock replacement = BlockEntityTagSubstitution.deserializeReplacement(compound, dynamicNbtOps);
                             replacement = replacement.applyRotationMirror(transformBy, level);

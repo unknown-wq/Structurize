@@ -5,7 +5,7 @@ import com.ldtteam.structurize.api.ItemStorage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.*;
-import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.material.Fluids;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -17,18 +17,24 @@ import java.util.stream.StreamSupport;
 public class ItemUtil
 {
     /**
-     * TODO(port-26.2): DEGRADED — {@code BucketItem.content} is {@code protected} in 26.2 (NeoForge used to
-     * publish it through an access transformer) and the mod may not widen access from its own zone. The public
-     * {@code getFluidContext()} stands in: vanilla returns {@code SOURCE_ONLY} exactly when the bucket is empty.
-     * A modded bucket that overrides {@code getFluidContext()} without being empty would be misjudged.
-     * Original test: {@code ((BucketItem) item).content != Fluids.EMPTY}
+     * NOT a gap, and the marker that used to sit here was wrong. {@code BucketItem.content} is indeed
+     * {@code protected} in 26.2, but 26.2 also carries a public accessor for it,
+     * {@code BucketItem#getContent()} ({@code /opt/mc-src/net/minecraft/world/item/BucketItem.java}:159), so
+     * neither an access widener nor a substitute test is needed - and {@code util/BlockUtils} (lines 419 and 548)
+     * has been calling {@code getContent()} in this very tree all along.
+     * <p>
+     * The stand-in that was here, {@code getFluidContext() != ClipContext.Fluid.SOURCE_ONLY}, is not equivalent to
+     * the test it replaced. It asks "does this bucket raytrace past fluids", which is a different question:
+     * vanilla's own {@code MobBucketItem} answers {@code NONE} ({@code MobBucketItem.java}:71) for reasons that
+     * have nothing to do with being full, and a modded bucket may override it independently of its contents. This
+     * is now literally the 1.21.1 test again.
      *
      * @param item the item to test.
      * @return true when the item is a bucket holding something.
      */
     private static boolean isFilledBucket(final Item item)
     {
-        return item instanceof final BucketItem bucket && bucket.getFluidContext() != ClipContext.Fluid.SOURCE_ONLY;
+        return item instanceof final BucketItem bucket && bucket.getContent() != Fluids.EMPTY;
     }
 
     /**
