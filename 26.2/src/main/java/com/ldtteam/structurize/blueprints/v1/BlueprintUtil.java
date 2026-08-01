@@ -387,6 +387,23 @@ public class BlueprintUtil
                     tileEntities[i] = nbt;
                     continue;
                 }
+                // Also no longer a block entity, but with nothing left to salvage. Beds lost theirs at
+                // data version 4885 (V4885#registerBlockEntities removes "minecraft:bed"), which is inside
+                // the range 26.2 fixes over and outside the range 1.21.1 did - so this only started biting
+                // on this version, for every blueprint written before 4885 rather than only 1.12-era ones.
+                // Vanilla drops the tag in RemoveBlockEntityTagFix, but that fix only has rules for CHUNK,
+                // ITEM_STACK, ENTITY and STRUCTURE; a bare References.BLOCK_ENTITY update has no rule at
+                // all, so DFU cannot write the value out, logs "Unsupported key: minecraft:bed" at ERROR
+                // and hands back the *unfixed* input. Drop it here instead: BlockEntityType.BED is gone
+                // from the registry, so keeping it would only move the complaint to placement time, where
+                // BlockEntity#loadStatic logs "Skipping block entity with invalid type" and returns null.
+                // The bed itself is unaffected either way - it comes from the palette, where the
+                // BLOCK_STATE fixer turns minecraft:bed into minecraft:red_bed.
+                if (id.equals("minecraft:bed"))
+                {
+                    tileEntities[i] = null;
+                    continue;
+                }
 
                 tileEntities[i] = id.startsWith("minecraft:")
                                     ? DataFixerUtils.runDataFixer(nbt, References.BLOCK_ENTITY, oldDataVersion)
