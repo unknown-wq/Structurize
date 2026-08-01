@@ -78,12 +78,31 @@ public final class BlueprintUtils
      */
     public static List<Entity> instantiateEntities(final Blueprint blueprint, final Level entityLevel)
     {
-        return blueprint.getEntitiesAsList()
+        final List<Entity> entities = blueprint.getEntitiesAsList()
             .stream()
             .map(entityInfo -> BlueprintEntityInfoTransformHandler.getInstance().Transform(entityInfo))
             .map(entityInfo -> constructEntity(entityInfo, entityLevel))
             .filter(Objects::nonNull)
             .toList();
+
+        // 26.2: the entity id is no longer handed out by the constructor. Entity#id starts at 0 and
+        // Entity#getId() throws "Tried to access entity ID before ID assignment" while it is still 0
+        // (/opt/mc-src/net/minecraft/world/entity/Entity.java:216,387); allocation moved to the server
+        // (ServerLevel.java:197,317). Blueprint entities never enter a real level, so nothing ever
+        // assigns them one — but FakeLevel hands them to a vanilla EntityLookup, and EntityLookup#add
+        // keys its map by getId(). That threw on every preview containing an entity, and took the whole
+        // blueprint down with it rather than just the entity.
+        //
+        // The ids only have to be unique within this one list: it becomes exactly one EntityLookup that
+        // no other entity ever enters. Negative values follow vanilla's own convention for an entity
+        // that exists only to be rendered (BaseSpawner.java:36 sets -1), and -1 - i can never land on
+        // the 0 that means "unassigned".
+        for (int i = 0; i < entities.size(); i++)
+        {
+            entities.get(i).setId(-1 - i);
+        }
+
+        return entities;
     }
 
     @Nullable
