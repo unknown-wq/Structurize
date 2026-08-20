@@ -11,9 +11,11 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.decoration.GlowItemFrame;
 import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.SpawnEggItem;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -236,9 +238,14 @@ public final class ItemStackUtils
     {
         if (entity instanceof final ItemFrame itemFrame)
         {
-            // 26.2: ItemFrame#getFrameItemStack is protected and the mod has no mixins; getItem() is the
-            // public accessor for the framed stack and getPickResult() gives the frame item itself.
-            return itemFrame.getPickResult();
+            // 26.2: ItemFrame#getFrameItemStack is protected and the mod has no mixins. ItemFrame#getPickResult
+            // returns the framed stack on a filled frame, so it only names the frame itself while it is empty;
+            // the framed stack is requested separately by getItemStacksOfEntity.
+            if (itemFrame.getItem().isEmpty())
+            {
+                return itemFrame.getPickResult();
+            }
+            return new ItemStack(itemFrame instanceof GlowItemFrame ? Items.GLOW_ITEM_FRAME : Items.ITEM_FRAME);
         }
         // 26.2: Entity#getPickedResult(HitResult) is a NeoForge patch; vanilla has Entity#getPickResult()
         // (/opt/mc-src/net/minecraft/world/entity/Entity.java:3852)
