@@ -1,5 +1,6 @@
 package com.ldtteam.structurize.storage;
 
+import com.ldtteam.structurize.api.Log;
 import com.ldtteam.structurize.blueprints.v1.Blueprint;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.server.level.ServerLevel;
@@ -8,7 +9,6 @@ import org.jetbrains.annotations.NotNull;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
 
@@ -76,9 +76,9 @@ public class ServerFutureProcessor
             {
                 data.consumer.accept(data.blueprintFuture.get());
             }
-            catch (InterruptedException | ExecutionException e)
+            catch (Exception e)
             {
-                e.printStackTrace();
+                Log.getLogger().error("Error processing blueprint future", e);
             }
         }
 
@@ -89,9 +89,9 @@ public class ServerFutureProcessor
             {
                 data.consumer.accept(data.blueprintDataFuture.get());
             }
-            catch (InterruptedException | ExecutionException e)
+            catch (Exception e)
             {
-                e.printStackTrace();
+                Log.getLogger().error("Error processing blueprint data future", e);
             }
         }
 
@@ -102,9 +102,9 @@ public class ServerFutureProcessor
             {
                 data.consumer.accept(data.blueprintFuture.get());
             }
-            catch (InterruptedException | ExecutionException e)
+            catch (Exception e)
             {
-                e.printStackTrace();
+                Log.getLogger().error("Error processing blueprint list future", e);
             }
         }
     }
